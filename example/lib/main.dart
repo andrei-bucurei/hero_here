@@ -15,6 +15,8 @@
 import 'package:flutter/material.dart';
 import 'package:hero_here/hero_here.dart';
 
+const kHeroTag = 'hero';
+
 void main() => runApp(
       MaterialApp(
         title: 'HeroHere Example',
@@ -34,7 +36,42 @@ class HeroHereExample extends StatefulWidget {
 
 class _HeroHereExampleState extends State<HeroHereExample> {
   @override
-  Widget build(BuildContext context) => const Scaffold(
-        body: HeroHereSwitcher(),
+  Widget build(BuildContext context) => Scaffold(
+        body: HeroHereSwitcher(
+          child: Center(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                SizedBox(
+                  width: 100,
+                  height: 100,
+                  child: HeroHere(
+                    key: const ValueKey('red'),
+                    tag: kHeroTag,
+                    child: Container(color: Colors.red),
+                  ),
+                ),
+                SizedBox(
+                  width: 150,
+                  height: 150,
+                  child: HeroHere(
+                    key: const ValueKey('green'),
+                    tag: kHeroTag,
+                    child: Container(color: Colors.green),
+                  ),
+                ),
+                SizedBox(
+                  width: 100,
+                  height: 100,
+                  child: HeroHere(
+                    key: const ValueKey('blue'),
+                    tag: kHeroTag,
+                    child: Container(color: Colors.blue),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       );
 }
