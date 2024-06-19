@@ -102,23 +102,8 @@ class _HeroHereSwitcherState extends State<HeroHereSwitcher>
         _childKey.currentContext?.findRenderRepaintBoundary();
 
     return renderRepaintBoundary != null
-        ? takeScreenshot(renderRepaintBoundary)
+        ? _takeScreenshot(renderRepaintBoundary)
         : null;
-  }
-
-  RawImage? takeScreenshot(
-    RenderRepaintBoundary renderRepaintBoundary, {
-    double pixelRatio = 1.0,
-  }) {
-    try {
-      return RawImage(
-        width: renderRepaintBoundary.size.width,
-        height: renderRepaintBoundary.size.height,
-        image: renderRepaintBoundary.toImageSync(pixelRatio: pixelRatio),
-      );
-    } catch (_) {
-      return null;
-    }
   }
 
   @override
@@ -162,6 +147,21 @@ class _HeroHereSwitcherState extends State<HeroHereSwitcher>
           ),
         ],
       );
+
+  RawImage? _takeScreenshot(
+    RenderRepaintBoundary renderRepaintBoundary, {
+    double pixelRatio = 1.0,
+  }) {
+    try {
+      return RawImage(
+        width: renderRepaintBoundary.size.width,
+        height: renderRepaintBoundary.size.height,
+        image: renderRepaintBoundary.toImageSync(pixelRatio: pixelRatio),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
 }
 
 abstract class _SwitchingState {
@@ -271,10 +271,10 @@ class _Execute extends _SwitchingState {
 
     for (final manifest in result.values) {
       final existingFlight = switcher.getFlight(manifest.tag);
-      if (existingFlight?._manifest.from == manifest.to) {
-        manifest.from = existingFlight!._manifest.to;
+      if (existingFlight?.manifest.from == manifest.to) {
+        manifest.from = existingFlight!.manifest.to;
       } else if (existingFlight != null) {
-        manifest.from = existingFlight._manifest.from;
+        manifest.from = existingFlight.manifest.from;
       } else {
         manifest.from = curHeroes
                 .where((x) => x.tag == manifest.tag)
@@ -466,14 +466,16 @@ class _HeroHereState extends State<HeroHere> {
       "_Hero(tag: '$tag', key: $key, offstage: $offstage)";
 
   void _initState(_Flight existingFlight) {
-    if (key == existingFlight._manifest.from.key) {
-      existingFlight._manifest.from = this;
-      _placeholderRect = existingFlight._manifest.from.placeholderRect;
+    if (key == existingFlight.manifest.from.key) {
+      _placeholderRect = existingFlight.manifest.from.placeholderRect;
+      // TODO: should notify existing flight listeners?
+      existingFlight.manifest.from = this;
     }
 
-    if (key == existingFlight._manifest.to.key) {
-      existingFlight._manifest.to = this;
-      _placeholderRect = existingFlight._manifest.to.placeholderRect;
+    if (key == existingFlight.manifest.to.key) {
+      _placeholderRect = existingFlight.manifest.to.placeholderRect;
+      // TODO: should notify existing flight listeners?
+      existingFlight.manifest.to = this;
     }
 
     _offstage = true;
@@ -503,9 +505,9 @@ class _FlightWidgetState extends State<_FlightWidget> {
 
   _Flight get flight => widget.flight;
 
-  _Hero? get toHero => widget.flight._manifest.to;
+  _Hero? get toHero => widget.flight.manifest.to;
 
-  _Hero? get fromHero => widget.flight._manifest.from;
+  _Hero? get fromHero => widget.flight.manifest.from;
 
   @override
   void initState() {
@@ -550,6 +552,7 @@ class _Flight extends ChangeNotifier {
   final StartAnimationCaller _forwardAnimation;
   final StartAnimationCaller _reverseAnimation;
   _Hero? _nextHero;
+  bool _reversed = false;
 
   _Flight({
     required this.switcher,
@@ -582,9 +585,9 @@ class _Flight extends ChangeNotifier {
     animation = animationFactory(_controller);
   }
 
-  Object get tag => _manifest.tag;
+  Object get tag => manifest.tag;
 
-  bool get reversed => _controller.status == AnimationStatus.reverse;
+  _FlightManifest get manifest => _manifest;
 
   factory _Flight.start({
     required _Switcher switcher,
@@ -628,7 +631,7 @@ class _Flight extends ChangeNotifier {
   }
 
   Widget buildShuttle(BuildContext context) => _shuttleBuilder(
-      context, animation, _manifest.from.widget, _manifest.to.widget);
+      context, animation, manifest.from.widget, manifest.to.widget);
 
   Rect? evaluateRect(Rect? begin, Rect? end) =>
       _rectTweenFactory(begin, end).evaluate(animation);
@@ -640,17 +643,17 @@ class _Flight extends ChangeNotifier {
   }
 
   bool _shouldReverse(_FlightManifest manifest) =>
-      !reversed && (_manifest.from == manifest.to);
+      !_reversed && (_manifest.from == manifest.to);
 
   bool _shouldForward(_FlightManifest manifest) =>
-      reversed && (_manifest.to == manifest.to);
+      _reversed && (_manifest.to == manifest.to);
 
   void _registerNextFlight(_Hero? to) {
-    if (!reversed && _manifest.to == to) {
+    if (!_reversed && _manifest.to == to) {
       _nextHero = null;
       return;
     }
-    if (reversed && _manifest.from == to) {
+    if (_reversed && _manifest.from == to) {
       _nextHero = null;
       return;
     }
@@ -662,7 +665,7 @@ class _Flight extends ChangeNotifier {
     Completer<_Flight>? completer,
   }) {
     completer ??= Completer();
-
+    _reversed = false;
     _nextHero = null;
     _manifest.from.offstage = true;
     _manifest.to.offstage = true;
@@ -686,6 +689,7 @@ class _Flight extends ChangeNotifier {
 
   Future<_Flight> _reverse() {
     final completer = Completer<_Flight>();
+    _reversed = true;
     _nextHero = null;
 
     _reverseAnimation(_controller).whenComplete(() {

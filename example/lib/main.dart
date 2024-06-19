@@ -12,25 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import 'dart:async';
+import 'dart:math';
+
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:hero_here/hero_here.dart';
 
 const kHeroTag = 'hero';
+const kAutoHeroSwitchingDuration = Duration(milliseconds: 500);
+const kHeroFlightAnimationDuration = Duration(milliseconds: 1000);
 
-void main() {
-  // TODO: remove time dilation
-  // timeDilation = 10;
-  runApp(
-    MaterialApp(
-      title: 'HeroHere Example',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(useMaterial3: true, brightness: Brightness.light),
-      darkTheme: ThemeData(useMaterial3: true, brightness: Brightness.dark),
-      home: const HeroHereExample(),
-    ),
-  );
-}
+void main() => runApp(
+      MaterialApp(
+        title: 'HeroHere Example',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(useMaterial3: true, brightness: Brightness.light),
+        darkTheme: ThemeData(useMaterial3: true, brightness: Brightness.dark),
+        home: const HeroHereExample(),
+      ),
+    );
 
 class HeroHereExample extends StatefulWidget {
   const HeroHereExample({super.key});
@@ -41,12 +41,32 @@ class HeroHereExample extends StatefulWidget {
 
 class _HeroHereExampleState extends State<HeroHereExample> {
   HeroType _curHeroType = HeroType.red;
+  bool _paused = true;
+  Timer? _timer;
 
   HeroType get curHeroType => _curHeroType;
 
   set curHeroType(HeroType value) {
     if (_curHeroType == value) return;
     setState(() => _curHeroType = value);
+  }
+
+  bool get paused => _paused;
+
+  set paused(bool value) {
+    if (value == _paused) return;
+    setState(() {
+      (_paused = value) ? _pauseHeroSwitching() : _startHeroSwitching();
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+
+    if (!paused) {
+      _startHeroSwitching();
+    }
   }
 
   @override
@@ -61,8 +81,9 @@ class _HeroHereExampleState extends State<HeroHereExample> {
                   height: 100,
                   child: curHeroType == HeroType.red
                       ? HeroHere(
-                          key: const ValueKey('red'),
+                          key: const ValueKey(HeroType.red),
                           tag: kHeroTag,
+                          flightAnimationDuration: kHeroFlightAnimationDuration,
                           flightShuttleBuilder: _flightShuttleBuilder,
                           child: Container(color: Colors.red),
                         )
@@ -73,8 +94,9 @@ class _HeroHereExampleState extends State<HeroHereExample> {
                   height: 150,
                   child: curHeroType == HeroType.green
                       ? HeroHere(
-                          key: const ValueKey('green'),
+                          key: const ValueKey(HeroType.green),
                           tag: kHeroTag,
+                          flightAnimationDuration: kHeroFlightAnimationDuration,
                           flightShuttleBuilder: _flightShuttleBuilder,
                           child: Container(color: Colors.green),
                         )
@@ -85,8 +107,9 @@ class _HeroHereExampleState extends State<HeroHereExample> {
                   height: 100,
                   child: curHeroType == HeroType.blue
                       ? HeroHere(
-                          key: const ValueKey('blue'),
+                          key: const ValueKey(HeroType.blue),
                           tag: kHeroTag,
+                          flightAnimationDuration: kHeroFlightAnimationDuration,
                           flightShuttleBuilder: _flightShuttleBuilder,
                           child: Container(color: Colors.blue),
                         )
@@ -104,7 +127,19 @@ class _HeroHereExampleState extends State<HeroHereExample> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   IconButton(
-                    onPressed: () => curHeroType = HeroType.red,
+                    onPressed: () => paused = !paused,
+                    icon: Icon(_paused ? Icons.play_arrow : Icons.pause),
+                  ),
+                ],
+              ),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    onPressed: () {
+                      paused = true;
+                      curHeroType = HeroType.red;
+                    },
                     icon: Icon(curHeroType == HeroType.red
                         ? Icons.circle
                         : Icons.radio_button_off),
@@ -118,7 +153,10 @@ class _HeroHereExampleState extends State<HeroHereExample> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   IconButton(
-                    onPressed: () => curHeroType = HeroType.green,
+                    onPressed: () {
+                      paused = true;
+                      curHeroType = HeroType.green;
+                    },
                     icon: Icon(curHeroType == HeroType.green
                         ? Icons.circle
                         : Icons.radio_button_off),
@@ -132,7 +170,10 @@ class _HeroHereExampleState extends State<HeroHereExample> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   IconButton(
-                    onPressed: () => curHeroType = HeroType.blue,
+                    onPressed: () {
+                      paused = true;
+                      curHeroType = HeroType.blue;
+                    },
                     icon: Icon(curHeroType == HeroType.blue
                         ? Icons.circle
                         : Icons.radio_button_off),
@@ -163,6 +204,17 @@ class _HeroHereExampleState extends State<HeroHereExample> {
           ),
         ],
       );
+
+  void _startHeroSwitching() {
+    _timer = Timer.periodic(kAutoHeroSwitchingDuration, (_) {
+      final i = Random().nextInt(HeroType.values.length);
+      curHeroType = HeroType.values[i];
+    });
+  }
+
+  void _pauseHeroSwitching() {
+    _timer?.cancel();
+  }
 }
 
 enum HeroType { red, green, blue }
