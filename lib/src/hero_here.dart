@@ -97,16 +97,24 @@ class _HeroHereSwitcherState extends State<HeroHereSwitcher>
 
   _Flight? getFlight(Object tag) => _flightsByTag[tag];
 
-  RawImage? takeChildScreenshot() {
+  RawImage? takeChildScreenshot({double pixelRatio = 1.0}) {
+    final renderRepaintBoundary =
+        _childKey.currentContext?.findRenderRepaintBoundary();
+
+    return renderRepaintBoundary != null
+        ? takeScreenshot(renderRepaintBoundary)
+        : null;
+  }
+
+  RawImage? takeScreenshot(
+    RenderRepaintBoundary renderRepaintBoundary, {
+    double pixelRatio = 1.0,
+  }) {
     try {
-      final renderObject = _childKey.currentContext!.findRenderObject();
-      final image = (renderObject as RenderRepaintBoundary).toImageSync(
-        pixelRatio: MediaQuery.devicePixelRatioOf(_childKey.currentContext!),
-      );
       return RawImage(
-        width: renderObject.size.width,
-        height: renderObject.size.height,
-        image: image,
+        width: renderRepaintBoundary.size.width,
+        height: renderRepaintBoundary.size.height,
+        image: renderRepaintBoundary.toImageSync(pixelRatio: pixelRatio),
       );
     } catch (_) {
       return null;
@@ -206,7 +214,9 @@ class _Prepare extends _SwitchingState {
     notifyWillSwitch(curHeroes);
 
     switcher.setChildState(() {
-      switcher._childScreenshot = switcher.takeChildScreenshot();
+      switcher._childScreenshot = switcher.takeChildScreenshot(
+        pixelRatio: MediaQuery.devicePixelRatioOf(switcher.context),
+      );
       switcher._child = switcher.widget.child;
       switcher._childOffstage = true;
       switcher._switchingState = _Execute(
@@ -428,7 +438,7 @@ class _HeroHereState extends State<HeroHere> {
   void willSwitch() => _placeholderRect = computeGlobalRect();
 
   Rect? computeGlobalRect() => _active
-      ? _childKey.currentContext?.findRenderObject()?.computeGlobalRect()
+      ? _childKey.currentContext?.findRenderBox()?.globalRect(Offset.zero)
       : null;
 
   @override
@@ -539,6 +549,7 @@ class _Flight extends ChangeNotifier {
   final HeroHereFlightShuttleBuilder _shuttleBuilder;
   final StartAnimationCaller _forwardAnimation;
   final StartAnimationCaller _reverseAnimation;
+  _Hero? _nextHero;
 
   _Flight({
     required this.switcher,
@@ -606,6 +617,8 @@ class _Flight extends ChangeNotifier {
       _forward().whenComplete(() {
         switcher.setSkyState(() => switcher.removeFlight(this));
       });
+    } else {
+      _registerNextFlight(manifest.to);
     }
   }
 
@@ -620,11 +633,29 @@ class _Flight extends ChangeNotifier {
   Rect? evaluateRect(Rect? begin, Rect? end) =>
       _rectTweenFactory(begin, end).evaluate(animation);
 
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   bool _shouldReverse(_FlightManifest manifest) =>
       !reversed && (_manifest.from == manifest.to);
 
   bool _shouldForward(_FlightManifest manifest) =>
       reversed && (_manifest.to == manifest.to);
+
+  void _registerNextFlight(_Hero? to) {
+    if (!reversed && _manifest.to == to) {
+      _nextHero = null;
+      return;
+    }
+    if (reversed && _manifest.from == to) {
+      _nextHero = null;
+      return;
+    }
+    _nextHero = to;
+  }
 
   Future<_Flight> _forward({
     double? from,
@@ -632,12 +663,22 @@ class _Flight extends ChangeNotifier {
   }) {
     completer ??= Completer();
 
+    _nextHero = null;
     _manifest.from.offstage = true;
     _manifest.to.offstage = true;
 
     _forwardAnimation(_controller, from: from).whenComplete(() {
-      _manifest.to.offstage = false;
-      completer!.complete(this);
+      if (_controller.status == AnimationStatus.reverse) return;
+
+      if (_nextHero != null) {
+        _manifest.from = _manifest.to;
+        _manifest.to = _nextHero!;
+        notifyListeners();
+        _forward(from: 0, completer: completer);
+      } else {
+        _manifest.to.offstage = false;
+        completer!.complete(this);
+      }
     });
 
     return completer.future;
@@ -645,20 +686,22 @@ class _Flight extends ChangeNotifier {
 
   Future<_Flight> _reverse() {
     final completer = Completer<_Flight>();
+    _nextHero = null;
+
     _reverseAnimation(_controller).whenComplete(() {
       if (_controller.status == AnimationStatus.forward) return;
 
-      _manifest.from.offstage = false;
-      completer.complete(this);
+      if (_nextHero != null) {
+        _manifest.to = _nextHero!;
+        notifyListeners();
+        _forward(from: 0, completer: completer);
+      } else {
+        _manifest.from.offstage = false;
+        completer.complete(this);
+      }
     });
 
     return completer.future;
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
   }
 }
 
@@ -688,16 +731,19 @@ class _FlightManifest {
   String toString() => '_FlightManifest(from: $from, to: $to)';
 }
 
-extension _RenderObject on RenderObject {
-  Rect? computeGlobalRect() {
-    if (this is! RenderBox) return null;
-    final renderBox = this as RenderBox;
-    if (!renderBox.hasSize) return null;
-    return renderBox.localToGlobal(Offset.zero) & renderBox.size;
+extension _RenderBox on RenderBox {
+  Rect? globalRect(Offset offset) {
+    if (!hasSize) return null;
+    return localToGlobal(offset) & size;
   }
 }
 
 extension _BuildContext on BuildContext {
+  RenderBox? findRenderBox() => findRenderObject() as RenderBox?;
+
+  RenderRepaintBoundary? findRenderRepaintBoundary() =>
+      findRenderObject() as RenderRepaintBoundary?;
+
   Set<_Hero> findHeroes() {
     // ignore: prefer_collection_literals
     final result = LinkedHashSet<_Hero>();
