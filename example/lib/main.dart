@@ -22,14 +22,14 @@ void main() {
   // TODO: remove time dilation
   // timeDilation = 10;
   runApp(
-      MaterialApp(
-        title: 'HeroHere Example',
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(useMaterial3: true, brightness: Brightness.light),
-        darkTheme: ThemeData(useMaterial3: true, brightness: Brightness.dark),
-        home: const HeroHereExample(),
-      ),
-    );
+    MaterialApp(
+      title: 'HeroHere Example',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(useMaterial3: true, brightness: Brightness.light),
+      darkTheme: ThemeData(useMaterial3: true, brightness: Brightness.dark),
+      home: const HeroHereExample(),
+    ),
+  );
 }
 
 class HeroHereExample extends StatefulWidget {
@@ -63,6 +63,7 @@ class _HeroHereExampleState extends State<HeroHereExample> {
                       ? HeroHere(
                           key: const ValueKey('red'),
                           tag: kHeroTag,
+                          flightShuttleBuilder: _flightShuttleBuilder,
                           child: Container(color: Colors.red),
                         )
                       : null,
@@ -74,6 +75,7 @@ class _HeroHereExampleState extends State<HeroHereExample> {
                       ? HeroHere(
                           key: const ValueKey('green'),
                           tag: kHeroTag,
+                          flightShuttleBuilder: _flightShuttleBuilder,
                           child: Container(color: Colors.green),
                         )
                       : null,
@@ -85,6 +87,7 @@ class _HeroHereExampleState extends State<HeroHereExample> {
                       ? HeroHere(
                           key: const ValueKey('blue'),
                           tag: kHeroTag,
+                          flightShuttleBuilder: _flightShuttleBuilder,
                           child: Container(color: Colors.blue),
                         )
                       : null,
@@ -142,6 +145,23 @@ class _HeroHereExampleState extends State<HeroHereExample> {
             ],
           ),
         ),
+      );
+
+  Widget _flightShuttleBuilder(
+    BuildContext flightContext,
+    Animation<double> animation,
+    HeroHere fromHero,
+    HeroHere toHero,
+  ) =>
+      Stack(
+        fit: StackFit.expand,
+        children: [
+          toHero.child,
+          FadeTransition(
+            opacity: ReverseAnimation(animation),
+            child: fromHero.child,
+          ),
+        ],
       );
 }
 
