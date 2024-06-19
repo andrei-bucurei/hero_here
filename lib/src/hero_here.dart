@@ -261,10 +261,10 @@ class _Execute extends _SwitchingState {
 
     for (final manifest in result.values) {
       final existingFlight = switcher.getFlight(manifest.tag);
-      if (existingFlight?.manifest.from == manifest.to) {
-        manifest.from = existingFlight!.manifest.to;
+      if (existingFlight?._manifest.from == manifest.to) {
+        manifest.from = existingFlight!._manifest.to;
       } else if (existingFlight != null) {
-        manifest.from = existingFlight.manifest.from;
+        manifest.from = existingFlight._manifest.from;
       } else {
         manifest.from = curHeroes
                 .where((x) => x.tag == manifest.tag)
@@ -328,6 +328,7 @@ class HeroHere extends StatefulWidget {
   final AnimationControllerFactory? flightAnimationControllerFactory;
   final AnimationFactory<double>? flightAnimationFactory;
   final StartAnimationCaller? forwardFlightAnimation;
+  final StartAnimationCaller? reverseFlightAnimation;
   final HeroHereFlightShuttleBuilder? flightShuttleBuilder;
   final RectTweenFactory? rectTweenFactory;
 
@@ -339,6 +340,7 @@ class HeroHere extends StatefulWidget {
     this.flightAnimationControllerFactory,
     this.flightAnimationFactory,
     this.forwardFlightAnimation,
+    this.reverseFlightAnimation,
     this.flightShuttleBuilder,
     this.rectTweenFactory,
   });
@@ -365,6 +367,11 @@ class HeroHere extends StatefulWidget {
           {double? from}) =>
       controller.forward(from: from);
 
+  static TickerFuture defaultReverseFlightAnimation(
+          AnimationController controller,
+          {double? from}) =>
+      controller.reverse(from: from);
+
   static RectTween defaultFlightRectTweenFactory(Rect? begin, Rect? end) =>
       RectTween(begin: begin, end: end);
 
@@ -377,6 +384,7 @@ class _HeroHereState extends State<HeroHere> {
   final _childKey = GlobalKey();
   bool _offstage = false;
   Rect? _placeholderRect;
+  bool _active = true;
 
   Key get key => widget.key!;
 
@@ -405,10 +413,23 @@ class _HeroHereState extends State<HeroHere> {
     }
   }
 
+  @override
+  void activate() {
+    super.activate();
+    _active = true;
+  }
+
+  @override
+  void deactivate() {
+    super.deactivate();
+    _active = false;
+  }
+
   void willSwitch() => _placeholderRect = computeGlobalRect();
 
-  Rect? computeGlobalRect() =>
-      _childKey.currentContext?.findRenderObject()?.computeGlobalRect();
+  Rect? computeGlobalRect() => _active
+      ? _childKey.currentContext?.findRenderObject()?.computeGlobalRect()
+      : null;
 
   @override
   Widget build(BuildContext context) => SizedBox(
@@ -435,14 +456,14 @@ class _HeroHereState extends State<HeroHere> {
       "_Hero(tag: '$tag', key: $key, offstage: $offstage)";
 
   void _initState(_Flight existingFlight) {
-    if (key == existingFlight.manifest.from.key) {
-      existingFlight.manifest.from = this;
-      _placeholderRect = existingFlight.manifest.from.placeholderRect;
+    if (key == existingFlight._manifest.from.key) {
+      existingFlight._manifest.from = this;
+      _placeholderRect = existingFlight._manifest.from.placeholderRect;
     }
 
-    if (key == existingFlight.manifest.to.key) {
-      existingFlight.manifest.to = this;
-      _placeholderRect = existingFlight.manifest.to.placeholderRect;
+    if (key == existingFlight._manifest.to.key) {
+      existingFlight._manifest.to = this;
+      _placeholderRect = existingFlight._manifest.to.placeholderRect;
     }
 
     _offstage = true;
@@ -472,9 +493,9 @@ class _FlightWidgetState extends State<_FlightWidget> {
 
   _Flight get flight => widget.flight;
 
-  _Hero? get toHero => widget.flight.manifest.to;
+  _Hero? get toHero => widget.flight._manifest.to;
 
-  _Hero? get fromHero => widget.flight.manifest.from;
+  _Hero? get fromHero => widget.flight._manifest.from;
 
   @override
   void initState() {
@@ -511,17 +532,19 @@ class _FlightWidgetState extends State<_FlightWidget> {
 
 class _Flight extends ChangeNotifier {
   final _Switcher switcher;
-  final _FlightManifest manifest;
+  _FlightManifest _manifest;
   late final AnimationController _controller;
   late final Animation<double> animation;
   final RectTweenFactory _rectTweenFactory;
   final HeroHereFlightShuttleBuilder _shuttleBuilder;
   final StartAnimationCaller _forwardAnimation;
+  final StartAnimationCaller _reverseAnimation;
 
   _Flight({
     required this.switcher,
-    required this.manifest,
-  })  : _rectTweenFactory = manifest.to.widget.rectTweenFactory ??
+    required _FlightManifest manifest,
+  })  : _manifest = manifest,
+        _rectTweenFactory = manifest.to.widget.rectTweenFactory ??
             manifest.from.widget.rectTweenFactory ??
             HeroHere.defaultFlightRectTweenFactory,
         _shuttleBuilder = manifest.to.widget.flightShuttleBuilder ??
@@ -529,23 +552,28 @@ class _Flight extends ChangeNotifier {
             HeroHere.defaultFlightShuttleBuilder,
         _forwardAnimation = manifest.to.widget.forwardFlightAnimation ??
             manifest.from.widget.forwardFlightAnimation ??
-            HeroHere.defaultForwardFlightAnimation {
-    final animationDuration = manifest.to.widget.flightAnimationDuration ??
-        manifest.from.widget.flightAnimationDuration ??
+            HeroHere.defaultForwardFlightAnimation,
+        _reverseAnimation = manifest.to.widget.reverseFlightAnimation ??
+            manifest.from.widget.reverseFlightAnimation ??
+            HeroHere.defaultReverseFlightAnimation {
+    final animationDuration = _manifest.to.widget.flightAnimationDuration ??
+        _manifest.from.widget.flightAnimationDuration ??
         HeroHere.defaultFlightAnimationDuration;
     final controllerFactory =
-        manifest.to.widget.flightAnimationControllerFactory ??
-            manifest.from.widget.flightAnimationControllerFactory ??
+        _manifest.to.widget.flightAnimationControllerFactory ??
+            _manifest.from.widget.flightAnimationControllerFactory ??
             HeroHere.defaultFlightAnimationControllerFactory;
-    final animationFactory = manifest.to.widget.flightAnimationFactory ??
-        manifest.from.widget.flightAnimationFactory ??
+    final animationFactory = _manifest.to.widget.flightAnimationFactory ??
+        _manifest.from.widget.flightAnimationFactory ??
         HeroHere.defaultFlightAnimationFactory;
 
     _controller = controllerFactory(switcher, animationDuration);
     animation = animationFactory(_controller);
   }
 
-  Object get tag => manifest.tag;
+  Object get tag => _manifest.tag;
+
+  bool get reversed => _controller.status == AnimationStatus.reverse;
 
   factory _Flight.start({
     required _Switcher switcher,
@@ -565,8 +593,20 @@ class _Flight extends ChangeNotifier {
     return flight;
   }
 
-  void update(_FlightManifest flightManifest) {
-    // TODO: implement
+  void update(_FlightManifest manifest) {
+    if (_shouldReverse(manifest)) {
+      _manifest = manifest.reversed;
+      notifyListeners();
+      _reverse().whenComplete(() {
+        switcher.setSkyState(() => switcher.removeFlight(this));
+      });
+    } else if (_shouldForward(manifest)) {
+      _manifest = manifest;
+      notifyListeners();
+      _forward().whenComplete(() {
+        switcher.setSkyState(() => switcher.removeFlight(this));
+      });
+    }
   }
 
   void abort() {
@@ -575,10 +615,16 @@ class _Flight extends ChangeNotifier {
   }
 
   Widget buildShuttle(BuildContext context) => _shuttleBuilder(
-      context, animation, manifest.from.widget, manifest.to.widget);
+      context, animation, _manifest.from.widget, _manifest.to.widget);
 
   Rect? evaluateRect(Rect? begin, Rect? end) =>
       _rectTweenFactory(begin, end).evaluate(animation);
+
+  bool _shouldReverse(_FlightManifest manifest) =>
+      !reversed && (_manifest.from == manifest.to);
+
+  bool _shouldForward(_FlightManifest manifest) =>
+      reversed && (_manifest.to == manifest.to);
 
   Future<_Flight> _forward({
     double? from,
@@ -586,12 +632,24 @@ class _Flight extends ChangeNotifier {
   }) {
     completer ??= Completer();
 
-    manifest.from.offstage = true;
-    manifest.to.offstage = true;
+    _manifest.from.offstage = true;
+    _manifest.to.offstage = true;
 
     _forwardAnimation(_controller, from: from).whenComplete(() {
-      manifest.to.offstage = false;
+      _manifest.to.offstage = false;
       completer!.complete(this);
+    });
+
+    return completer.future;
+  }
+
+  Future<_Flight> _reverse() {
+    final completer = Completer<_Flight>();
+    _reverseAnimation(_controller).whenComplete(() {
+      if (_controller.status == AnimationStatus.forward) return;
+
+      _manifest.from.offstage = false;
+      completer.complete(this);
     });
 
     return completer.future;
@@ -616,6 +674,8 @@ class _FlightManifest {
   });
 
   bool get isIdle => from == to;
+
+  _FlightManifest get reversed => _FlightManifest(tag: tag, from: to, to: from);
 
   @override
   int get hashCode => Object.hash(from, to);

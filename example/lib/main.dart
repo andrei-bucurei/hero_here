@@ -13,11 +13,15 @@
 // limitations under the License.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:hero_here/hero_here.dart';
 
 const kHeroTag = 'hero';
 
-void main() => runApp(
+void main() {
+  // TODO: remove time dilation
+  // timeDilation = 10;
+  runApp(
       MaterialApp(
         title: 'HeroHere Example',
         debugShowCheckedModeBanner: false,
@@ -26,6 +30,7 @@ void main() => runApp(
         home: const HeroHereExample(),
       ),
     );
+}
 
 class HeroHereExample extends StatefulWidget {
   const HeroHereExample({super.key});
