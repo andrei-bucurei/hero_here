@@ -12,14 +12,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import 'dart:async';
 import 'dart:collection';
+import 'dart:math';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
 typedef _Hero = _HeroHereState;
 typedef _Switcher = _HeroHereSwitcherState;
+
+typedef AnimationControllerFactory = AnimationController Function(
+    TickerProvider tickerProvider, Duration duration);
+
+typedef AnimationFactory<T> = Animation<T> Function(
+  AnimationController controller,
+);
+
+typedef StartAnimationCaller = TickerFuture Function(
+  AnimationController controller, {
+  double? from,
+});
+
+typedef RectTweenFactory = RectTween Function(Rect? begin, Rect? end);
+
+typedef HeroHereFlightShuttleBuilder = Widget Function(
+  BuildContext flightContext,
+  Animation<double> animation,
+  HeroHere fromHero,
+  HeroHere toHero,
+);
 
 class HeroHereSwitcher extends StatefulWidget {
   final Widget? child;
@@ -47,6 +69,11 @@ class _HeroHereSwitcherState extends State<HeroHereSwitcher>
   Iterable<_Flight> get flights => _flightsByTag.values;
 
   Iterable<Object> get flightTags => _flightsByTag.keys;
+
+  void addFlight(_Flight flight) => _flightsByTag[flight.tag] = flight;
+
+  void removeFlight(_Flight flight) =>
+      _flightsByTag.remove(flight.tag)?.dispose();
 
   @override
   void dispose() {
@@ -284,17 +311,58 @@ class _Execute extends _SwitchingState {
 }
 
 class HeroHere extends StatefulWidget {
+  static const defaultFlightAnimationCurve = Curves.easeInOut;
+  static const defaultFlightAnimationDuration = Duration(milliseconds: 350);
+
   final Object tag;
   final Widget child;
+  final Duration? flightAnimationDuration;
+  final AnimationControllerFactory? flightAnimationControllerFactory;
+  final AnimationFactory<double>? flightAnimationFactory;
+  final StartAnimationCaller? forwardFlightAnimation;
+  final HeroHereFlightShuttleBuilder? flightShuttleBuilder;
+  final RectTweenFactory? rectTweenFactory;
 
   const HeroHere({
     required super.key,
     required this.tag,
     required this.child,
+    this.flightAnimationDuration,
+    this.flightAnimationControllerFactory,
+    this.flightAnimationFactory,
+    this.forwardFlightAnimation,
+    this.flightShuttleBuilder,
+    this.rectTweenFactory,
   });
 
   @override
   State<HeroHere> createState() => _HeroHereState();
+
+  static AnimationController defaultFlightAnimationControllerFactory(
+          TickerProvider tickerProvider, Duration duration) =>
+      AnimationController(
+        vsync: tickerProvider,
+        duration: duration,
+      );
+
+  static Animation<double> defaultFlightAnimationFactory(
+          AnimationController controller) =>
+      CurvedAnimation(
+        parent: controller,
+        curve: defaultFlightAnimationCurve,
+      );
+
+  static TickerFuture defaultForwardFlightAnimation(
+          AnimationController controller,
+          {double? from}) =>
+      controller.forward(from: from);
+
+  static RectTween defaultFlightRectTweenFactory(Rect? begin, Rect? end) =>
+      RectTween(begin: begin, end: end);
+
+  static Widget defaultFlightShuttleBuilder(BuildContext flightContext,
+          Animation<double> animation, HeroHere fromHero, HeroHere toHero) =>
+      toHero.child;
 }
 
 class _HeroHereState extends State<HeroHere> {
@@ -390,20 +458,91 @@ class _FlightWidget extends StatefulWidget {
 }
 
 class _FlightWidgetState extends State<_FlightWidget> {
+  Rect? fromRect;
+  Rect? toRect;
+  Rect curRect = Rect.zero;
+
+  _Flight get flight => widget.flight;
+
+  _Hero? get toHero => widget.flight.manifest.to;
+
+  _Hero? get fromHero => widget.flight.manifest.from;
+
+  @override
+  void initState() {
+    super.initState();
+    flight.addListener(() => setState(() {}));
+  }
+
   @override
   Widget build(BuildContext context) {
-    return const Placeholder();
+    fromRect = fromHero?.computeGlobalRect() ?? fromHero?.placeholderRect;
+
+    return AnimatedBuilder(
+      animation: flight.animation,
+      builder: (context, child) {
+        toRect = toHero?.computeGlobalRect() ?? toHero?.placeholderRect;
+        curRect =
+            toRect != null ? flight.evaluateRect(fromRect, toRect)! : curRect;
+
+        return Stack(
+          children: [
+            SizedBox(
+              width: max(curRect.right, 0),
+              height: max(curRect.bottom, 0),
+            ),
+            Positioned(
+              top: curRect.top,
+              left: curRect.left,
+              width: curRect.width,
+              height: curRect.height,
+              child: IgnorePointer(
+                child: child,
+              ),
+            ),
+          ],
+        );
+      },
+      child: flight.buildShuttle(context),
+    );
   }
 }
 
 class _Flight extends ChangeNotifier {
   final _Switcher switcher;
   final _FlightManifest manifest;
+  late final AnimationController _controller;
+  late final Animation<double> animation;
+  final RectTweenFactory _rectTweenFactory;
+  final HeroHereFlightShuttleBuilder _shuttleBuilder;
+  final StartAnimationCaller _forwardAnimation;
 
   _Flight({
     required this.switcher,
     required this.manifest,
-  });
+  })  : _rectTweenFactory = manifest.to.widget.rectTweenFactory ??
+            manifest.from.widget.rectTweenFactory ??
+            HeroHere.defaultFlightRectTweenFactory,
+        _shuttleBuilder = manifest.to.widget.flightShuttleBuilder ??
+            manifest.from.widget.flightShuttleBuilder ??
+            HeroHere.defaultFlightShuttleBuilder,
+        _forwardAnimation = manifest.to.widget.forwardFlightAnimation ??
+            manifest.from.widget.forwardFlightAnimation ??
+            HeroHere.defaultForwardFlightAnimation {
+    final animationDuration = manifest.to.widget.flightAnimationDuration ??
+        manifest.from.widget.flightAnimationDuration ??
+        HeroHere.defaultFlightAnimationDuration;
+    final controllerFactory =
+        manifest.to.widget.flightAnimationControllerFactory ??
+            manifest.from.widget.flightAnimationControllerFactory ??
+            HeroHere.defaultFlightAnimationControllerFactory;
+    final animationFactory = manifest.to.widget.flightAnimationFactory ??
+        manifest.from.widget.flightAnimationFactory ??
+        HeroHere.defaultFlightAnimationFactory;
+
+    _controller = controllerFactory(switcher, animationDuration);
+    animation = animationFactory(_controller);
+  }
 
   Object get tag => manifest.tag;
 
@@ -416,13 +555,11 @@ class _Flight extends ChangeNotifier {
       manifest: manifest,
     );
 
-    if(kDebugMode) {
-      print('START FLIGHT $manifest');
-    }
+    switcher.setSkyState(() => switcher.addFlight(flight));
 
-    manifest.from.offstage = true;
-
-    // TODO: implement
+    flight._forward().whenComplete(() {
+      switcher.setSkyState(() => switcher.removeFlight(flight));
+    });
 
     return flight;
   }
@@ -432,7 +569,37 @@ class _Flight extends ChangeNotifier {
   }
 
   void abort() {
-    // TODO: implement
+    _controller.stop(canceled: true);
+    switcher.setSkyState(() => switcher.removeFlight(this));
+  }
+
+  Widget buildShuttle(BuildContext context) => _shuttleBuilder(
+      context, animation, manifest.from.widget, manifest.to.widget);
+
+  Rect? evaluateRect(Rect? begin, Rect? end) =>
+      _rectTweenFactory(begin, end).evaluate(animation);
+
+  Future<_Flight> _forward({
+    double? from,
+    Completer<_Flight>? completer,
+  }) {
+    completer ??= Completer();
+
+    manifest.from.offstage = true;
+    manifest.to.offstage = true;
+
+    _forwardAnimation(_controller, from: from).whenComplete(() {
+      manifest.to.offstage = false;
+      completer!.complete(this);
+    });
+
+    return completer.future;
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 }
 
