@@ -14,13 +14,15 @@
 
 import 'dart:async';
 import 'dart:collection';
-import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
 typedef _Hero = _HeroHereState;
 typedef _Switcher = _HeroHereSwitcherState;
+
+typedef HeroHereSwitcherLayoutBuilder = Widget Function(
+    Widget child, Widget sky);
 
 typedef AnimationControllerFactory = AnimationController Function(
     TickerProvider tickerProvider, Duration duration);
@@ -45,14 +47,22 @@ typedef HeroHereFlightShuttleBuilder = Widget Function(
 
 class HeroHereSwitcher extends StatefulWidget {
   final Widget? child;
+  final HeroHereSwitcherLayoutBuilder layoutBuilder;
 
   const HeroHereSwitcher({
     super.key,
     this.child,
+    this.layoutBuilder = HeroHereSwitcher.defaultLayoutBuilder,
   });
 
   @override
   State<HeroHereSwitcher> createState() => _HeroHereSwitcherState();
+
+  static Widget defaultLayoutBuilder(Widget child, Widget sky) => Material(
+        child: Stack(
+          children: [child, sky],
+        ),
+      );
 }
 
 class _HeroHereSwitcherState extends State<HeroHereSwitcher>
@@ -104,20 +114,18 @@ class _HeroHereSwitcherState extends State<HeroHereSwitcher>
   }
 
   @override
-  Widget build(BuildContext context) => Material(
-        child: Stack(
-          children: [
-            StatefulBuilder(builder: (context, setState) {
-              setChildState = setState;
-              return _buildChild();
-            }),
-            StatefulBuilder(builder: (context, setState) {
-              setSkyState = setState;
-              return _buildSky();
-            }),
-          ],
-        ),
-      );
+  Widget build(BuildContext context) {
+    final child = StatefulBuilder(builder: (context, setState) {
+      setChildState = setState;
+      return _buildChild();
+    });
+    final sky = StatefulBuilder(builder: (context, setState) {
+      setSkyState = setState;
+      return _buildSky();
+    });
+
+    return widget.layoutBuilder(child, sky);
+  }
 
   Widget _buildChild() {
     _switchingState.execute();
@@ -485,22 +493,15 @@ class _FlightWidgetState extends State<_FlightWidget> {
         curRect =
             toRect != null ? flight.evaluateRect(fromRect, toRect)! : curRect;
 
-        return Stack(
-          children: [
-            SizedBox(
-              width: max(curRect.right, 0),
-              height: max(curRect.bottom, 0),
+        return Transform.translate(
+          offset: curRect.topLeft,
+          child: SizedBox(
+            width: curRect.width,
+            height: curRect.height,
+            child: IgnorePointer(
+              child: child,
             ),
-            Positioned(
-              top: curRect.top,
-              left: curRect.left,
-              width: curRect.width,
-              height: curRect.height,
-              child: IgnorePointer(
-                child: child,
-              ),
-            ),
-          ],
+          ),
         );
       },
       child: flight.buildShuttle(context),
