@@ -16,6 +16,7 @@ import 'dart:collection';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 typedef _Hero = _HeroHereState;
 typedef _Switcher = _HeroHereSwitcherState;
@@ -36,9 +37,16 @@ class _HeroHereSwitcherState extends State<HeroHereSwitcher>
     with TickerProviderStateMixin {
   final _childKey = GlobalKey();
   final _flightsByTag = <Object, _Flight>{};
-  late _SwitchingState _switchingState = _Idle(switcher: this);
+  late _SwitchingState _switchingState = _Prepare(this);
+  Widget? _child;
+  StateSetter setChildState = (_) {};
+  StateSetter setSkyState = (_) {};
+  RawImage? _childScreenshot;
+  bool _childOffstage = false;
 
   Iterable<_Flight> get flights => _flightsByTag.values;
+
+  Iterable<Object> get flightTags => _flightsByTag.keys;
 
   @override
   void dispose() {
@@ -50,21 +58,54 @@ class _HeroHereSwitcherState extends State<HeroHereSwitcher>
 
   Set<_Hero> findHeroes() => _childKey.currentContext?.findHeroes() ?? const {};
 
+  _Flight? getFlight(Object tag) => _flightsByTag[tag];
+
+  RawImage? takeChildScreenshot() {
+    try {
+      final renderObject = _childKey.currentContext!.findRenderObject();
+      final image = (renderObject as RenderRepaintBoundary).toImageSync(
+        pixelRatio: MediaQuery.devicePixelRatioOf(_childKey.currentContext!),
+      );
+      return RawImage(
+        width: renderObject.size.width,
+        height: renderObject.size.height,
+        image: image,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Material(
         child: Stack(
           children: [
-            _buildChild(),
-            _buildSky(),
+            StatefulBuilder(builder: (context, setState) {
+              setChildState = setState;
+              return _buildChild();
+            }),
+            StatefulBuilder(builder: (context, setState) {
+              setSkyState = setState;
+              return _buildSky();
+            }),
           ],
         ),
       );
 
   Widget _buildChild() {
     _switchingState.execute();
-    return RepaintBoundary(
-      key: _childKey,
-      child: widget.child ?? const SizedBox(),
+
+    return Stack(
+      children: [
+        Offstage(
+          offstage: _childOffstage,
+          child: RepaintBoundary(
+            key: _childKey,
+            child: _child,
+          ),
+        ),
+        if (_childScreenshot != null) _childScreenshot!,
+      ],
     );
   }
 
@@ -82,42 +123,163 @@ class _HeroHereSwitcherState extends State<HeroHereSwitcher>
 
 abstract class _SwitchingState {
   final _Switcher switcher;
+  final Set<_Hero>? prevSwitchHeroes;
 
-  _SwitchingState({required this.switcher});
+  _SwitchingState(
+    this.switcher, {
+    this.prevSwitchHeroes,
+  });
+
+  void notifyWillSwitch(Iterable<_Hero> heroes) {
+    for (final hero in heroes) {
+      hero.willSwitch();
+    }
+  }
 
   void execute();
 }
 
 class _Idle extends _SwitchingState {
-  _Idle({required super.switcher});
+  _Idle(
+    super.switcher, {
+    super.prevSwitchHeroes,
+  });
 
   @override
   void execute() {
-    // TODO: implement
-
-    if (kDebugMode) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        print(switcher.findHeroes());
-      });
-    }
+    switcher._child = switcher.widget.child;
+    switcher._switchingState = _Prepare(
+      switcher,
+      prevSwitchHeroes: prevSwitchHeroes,
+    );
   }
 }
 
 class _Prepare extends _SwitchingState {
-  _Prepare({required super.switcher});
+  _Prepare(
+    super.switcher, {
+    super.prevSwitchHeroes,
+  });
 
   @override
-  void execute() {
-    // TODO: get current heroes, make and show a stage screenshot, update the switcher's child
+  void execute() =>
+      WidgetsBinding.instance.addPostFrameCallback(_prepareSwitch);
+
+  void _prepareSwitch(_) {
+    final curHeroes = switcher.findHeroes();
+
+    notifyWillSwitch(curHeroes);
+
+    switcher.setChildState(() {
+      switcher._childScreenshot = switcher.takeChildScreenshot();
+      switcher._child = switcher.widget.child;
+      switcher._childOffstage = true;
+      switcher._switchingState = _Execute(
+        switcher,
+        prevSwitchHeroes: prevSwitchHeroes,
+        curHeroes: curHeroes,
+      );
+    });
   }
 }
 
 class _Execute extends _SwitchingState {
-  _Execute({required super.switcher});
+  final Set<_Hero> curHeroes;
+
+  _Execute(
+    super.switcher, {
+    super.prevSwitchHeroes,
+    required this.curHeroes,
+  });
 
   @override
-  void execute() {
-    // TODO: get new heroes, hide screenshot, run flights
+  void execute() => WidgetsBinding.instance.addPostFrameCallback(_switch);
+
+  void _switch(_) {
+    final nextHeroes = switcher.findHeroes();
+    final flightManifestsByTag = _getFlightManifests(nextHeroes);
+
+    notifyWillSwitch(nextHeroes);
+
+    _offstageRedundantNextHeroes(nextHeroes, flightManifestsByTag);
+
+    _dispatchFlights(flightManifestsByTag);
+
+    switcher.setChildState(() {
+      switcher._childScreenshot = null;
+      switcher._childOffstage = false;
+      switcher._switchingState = _Idle(
+        switcher,
+        prevSwitchHeroes: nextHeroes,
+      );
+    });
+  }
+
+  Map<Object, _FlightManifest> _getFlightManifests(Set<_Hero> nextHeroes) {
+    final result = <Object, _FlightManifest>{};
+
+    for (final x in nextHeroes) {
+      final manifest = result.putIfAbsent(
+          x.tag, () => _FlightManifest(tag: x.tag, from: x, to: x));
+      manifest.to = x;
+    }
+
+    for (final manifest in result.values) {
+      final existingFlight = switcher.getFlight(manifest.tag);
+      if (existingFlight?.manifest.from == manifest.to) {
+        manifest.from = existingFlight!.manifest.to;
+      } else if (existingFlight != null) {
+        manifest.from = existingFlight.manifest.from;
+      } else {
+        manifest.from = curHeroes
+                .where((x) => x.tag == manifest.tag)
+                .where((x) => x.onstage)
+                .where((x) => prevSwitchHeroes?.contains(x) ?? false)
+                .firstOrNull ??
+            curHeroes
+                .where((x) => x.tag == manifest.tag)
+                .where((x) => x.onstage)
+                .firstOrNull ??
+            manifest.from;
+      }
+    }
+    return result;
+  }
+
+  void _offstageRedundantNextHeroes(
+    Set<_Hero> nextHeroes,
+    Map<Object, _FlightManifest> flightManifestsByTag,
+  ) {
+    for (final hero in nextHeroes) {
+      final manifest = flightManifestsByTag[hero.tag];
+      if (manifest?.from != hero && manifest?.to != hero) {
+        hero.offstage = true;
+      }
+    }
+  }
+
+  void _dispatchFlights(Map<Object, _FlightManifest> flightManifestsByTag) {
+    final tags =
+        flightManifestsByTag.keys.followedBy(switcher.flightTags).toSet();
+
+    for (final tag in tags) {
+      final flightManifest = flightManifestsByTag[tag];
+      final existingFlight = switcher.getFlight(tag);
+
+      if (flightManifest == null || flightManifest.isIdle) {
+        existingFlight?.abort();
+        continue;
+      }
+
+      if (existingFlight != null) {
+        existingFlight.update(flightManifest);
+      } else {
+        _Flight.start(
+          switcher: switcher,
+          manifest: flightManifest,
+        );
+      }
+    }
   }
 }
 
@@ -136,12 +298,54 @@ class HeroHere extends StatefulWidget {
 }
 
 class _HeroHereState extends State<HeroHere> {
+  final _childKey = GlobalKey();
+  bool _offstage = false;
+  Rect? _placeholderRect;
+
   Key get key => widget.key!;
 
   Object get tag => widget.tag;
 
+  set offstage(bool value) {
+    if (_offstage == value) return;
+    _setState(() => _offstage = value);
+  }
+
+  bool get offstage => _offstage;
+
+  bool get onstage => !offstage;
+
+  Rect? get placeholderRect => _placeholderRect;
+
   @override
-  Widget build(BuildContext context) => widget.child;
+  void initState() {
+    super.initState();
+
+    final switcher = context.findAncestorStateOfType<_Switcher>();
+    final existingFlight = switcher?.getFlight(tag);
+
+    if (existingFlight != null) {
+      _initState(existingFlight);
+    }
+  }
+
+  void willSwitch() => _placeholderRect = computeGlobalRect();
+
+  Rect? computeGlobalRect() =>
+      _childKey.currentContext?.findRenderObject()?.computeGlobalRect();
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        width: offstage ? _placeholderRect?.width : null,
+        height: offstage ? _placeholderRect?.height : null,
+        child: Offstage(
+          offstage: offstage,
+          child: KeyedSubtree(
+            key: _childKey,
+            child: widget.child,
+          ),
+        ),
+      );
 
   @override
   bool operator ==(Object other) =>
@@ -152,7 +356,26 @@ class _HeroHereState extends State<HeroHere> {
 
   @override
   String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) =>
-      "_Hero(tag: '$tag', key: $key)";
+      "_Hero(tag: '$tag', key: $key, offstage: $offstage)";
+
+  void _initState(_Flight existingFlight) {
+    if (key == existingFlight.manifest.from.key) {
+      existingFlight.manifest.from = this;
+      _placeholderRect = existingFlight.manifest.from.placeholderRect;
+    }
+
+    if (key == existingFlight.manifest.to.key) {
+      existingFlight.manifest.to = this;
+      _placeholderRect = existingFlight.manifest.to.placeholderRect;
+    }
+
+    _offstage = true;
+  }
+
+  void _setState(VoidCallback cb) {
+    if (!mounted) return cb();
+    setState(cb);
+  }
 }
 
 class _FlightWidget extends StatefulWidget {
@@ -183,6 +406,34 @@ class _Flight extends ChangeNotifier {
   });
 
   Object get tag => manifest.tag;
+
+  factory _Flight.start({
+    required _Switcher switcher,
+    required _FlightManifest manifest,
+  }) {
+    final flight = _Flight(
+      switcher: switcher,
+      manifest: manifest,
+    );
+
+    if(kDebugMode) {
+      print('START FLIGHT $manifest');
+    }
+
+    manifest.from.offstage = true;
+
+    // TODO: implement
+
+    return flight;
+  }
+
+  void update(_FlightManifest flightManifest) {
+    // TODO: implement
+  }
+
+  void abort() {
+    // TODO: implement
+  }
 }
 
 class _FlightManifest {
@@ -196,6 +447,8 @@ class _FlightManifest {
     required this.to,
   });
 
+  bool get isIdle => from == to;
+
   @override
   int get hashCode => Object.hash(from, to);
 
@@ -205,6 +458,15 @@ class _FlightManifest {
 
   @override
   String toString() => '_FlightManifest(from: $from, to: $to)';
+}
+
+extension _RenderObject on RenderObject {
+  Rect? computeGlobalRect() {
+    if (this is! RenderBox) return null;
+    final renderBox = this as RenderBox;
+    if (!renderBox.hasSize) return null;
+    return renderBox.localToGlobal(Offset.zero) & renderBox.size;
+  }
 }
 
 extension _BuildContext on BuildContext {

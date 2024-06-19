@@ -35,6 +35,15 @@ class HeroHereExample extends StatefulWidget {
 }
 
 class _HeroHereExampleState extends State<HeroHereExample> {
+  HeroType _curHeroType = HeroType.red;
+
+  HeroType get curHeroType => _curHeroType;
+
+  set curHeroType(HeroType value) {
+    if (_curHeroType == value) return;
+    setState(() => _curHeroType = value);
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
         body: HeroHereSwitcher(
@@ -45,33 +54,90 @@ class _HeroHereExampleState extends State<HeroHereExample> {
                 SizedBox(
                   width: 100,
                   height: 100,
-                  child: HeroHere(
-                    key: const ValueKey('red'),
-                    tag: kHeroTag,
-                    child: Container(color: Colors.red),
-                  ),
+                  child: curHeroType == HeroType.red
+                      ? HeroHere(
+                          key: const ValueKey('red'),
+                          tag: kHeroTag,
+                          child: Container(color: Colors.red),
+                        )
+                      : null,
                 ),
                 SizedBox(
                   width: 150,
                   height: 150,
-                  child: HeroHere(
-                    key: const ValueKey('green'),
-                    tag: kHeroTag,
-                    child: Container(color: Colors.green),
-                  ),
+                  child: curHeroType == HeroType.green
+                      ? HeroHere(
+                          key: const ValueKey('green'),
+                          tag: kHeroTag,
+                          child: Container(color: Colors.green),
+                        )
+                      : null,
                 ),
                 SizedBox(
                   width: 100,
                   height: 100,
-                  child: HeroHere(
-                    key: const ValueKey('blue'),
-                    tag: kHeroTag,
-                    child: Container(color: Colors.blue),
-                  ),
+                  child: curHeroType == HeroType.blue
+                      ? HeroHere(
+                          key: const ValueKey('blue'),
+                          tag: kHeroTag,
+                          child: Container(color: Colors.blue),
+                        )
+                      : null,
                 ),
               ],
             ),
           ),
         ),
+        bottomNavigationBar: BottomAppBar(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    onPressed: () => curHeroType = HeroType.red,
+                    icon: Icon(curHeroType == HeroType.red
+                        ? Icons.circle
+                        : Icons.radio_button_off),
+                    color: curHeroType == HeroType.red
+                        ? Colors.red
+                        : Theme.of(context).colorScheme.secondary,
+                  ),
+                ],
+              ),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    onPressed: () => curHeroType = HeroType.green,
+                    icon: Icon(curHeroType == HeroType.green
+                        ? Icons.circle
+                        : Icons.radio_button_off),
+                    color: curHeroType == HeroType.green
+                        ? Colors.green
+                        : Theme.of(context).colorScheme.secondary,
+                  ),
+                ],
+              ),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    onPressed: () => curHeroType = HeroType.blue,
+                    icon: Icon(curHeroType == HeroType.blue
+                        ? Icons.circle
+                        : Icons.radio_button_off),
+                    color: curHeroType == HeroType.blue
+                        ? Colors.blue
+                        : Theme.of(context).colorScheme.secondary,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       );
 }
+
+enum HeroType { red, green, blue }
