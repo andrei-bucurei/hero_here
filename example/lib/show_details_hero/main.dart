@@ -13,16 +13,15 @@
 // limitations under the License.
 
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
+import 'package:flutter/physics.dart';
 import 'package:hero_here/hero_here.dart';
 
 import 'config.dart';
 import 'eight_thousander_details_hero.dart';
 import 'eight_thousander_preview_hero.dart';
+import 'util.dart';
 
-void main() {
-  timeDilation = 10;
-  runApp(
+void main() => runApp(
       MaterialApp(
         title: 'HeroHere Example',
         debugShowCheckedModeBanner: false,
@@ -31,7 +30,6 @@ void main() {
         home: const ShowDetailsExample(),
       ),
     );
-}
 
 class ShowDetailsExample extends StatefulWidget {
   const ShowDetailsExample({super.key});
@@ -42,6 +40,7 @@ class ShowDetailsExample extends StatefulWidget {
 
 class _ShowDetailsExampleState extends State<ShowDetailsExample> {
   int? _showDetailsIndex;
+  DragEndDetails? _dragEndDetailsOnClose;
 
   bool get detailsVisible => _showDetailsIndex != null;
 
@@ -111,6 +110,27 @@ class _ShowDetailsExampleState extends State<ShowDetailsExample> {
       tag: eightThousander.image,
       eightThousander: eightThousander,
       onTap: () => _showDetails(index),
+      imageHeroFlightAnimationControllerFactory: _dragEndDetailsOnClose == null
+          ? HeroHere.defaultFlightAnimationControllerFactory
+          : (tickerProvider, _) => AnimationController(
+                vsync: tickerProvider,
+                lowerBound: kOffsetAnimationControllerLowerBound,
+                upperBound: kOffsetAnimationControllerUpperBound,
+              ),
+      imageHeroFlightAnimationFactory: (controller) =>
+          _dragEndDetailsOnClose == null
+              ? HeroHere.defaultFlightAnimationFactory(controller)
+              : controller,
+      forwardImageHeroFlightAnimation: _dragEndDetailsOnClose == null
+          ? HeroHere.defaultForwardFlightAnimation
+          : (controller, {from}) {
+              final screenSize = MediaQuery.sizeOf(context);
+              final velocity =
+                  _dragEndDetailsOnClose!.getUnitVelocity(screenSize);
+              return controller.animateWith(
+                SpringSimulation(kSpringDesription, 0, 1, velocity),
+              );
+            },
     );
   }
 
@@ -124,7 +144,13 @@ class _ShowDetailsExampleState extends State<ShowDetailsExample> {
     );
   }
 
-  void _showDetails(int index) => setState(() => _showDetailsIndex = index);
+  void _showDetails(int index) => setState(() {
+        _showDetailsIndex = index;
+        _dragEndDetailsOnClose = null;
+      });
 
-  void _closeDetails() => setState(() => _showDetailsIndex = null);
+  void _closeDetails([DragEndDetails? dragEndDetails]) => setState(() {
+        _dragEndDetailsOnClose = dragEndDetails;
+        _showDetailsIndex = null;
+      });
 }

@@ -341,6 +341,7 @@ class HeroHere extends StatefulWidget {
   final StartAnimationCaller? reverseFlightAnimation;
   final HeroHereFlightShuttleBuilder? flightShuttleBuilder;
   final RectTweenFactory? rectTweenFactory;
+  final Object? payload;
 
   const HeroHere({
     required super.key,
@@ -353,6 +354,7 @@ class HeroHere extends StatefulWidget {
     this.reverseFlightAnimation,
     this.flightShuttleBuilder,
     this.rectTweenFactory,
+    this.payload,
   });
 
   @override

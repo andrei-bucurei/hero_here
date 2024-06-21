@@ -33,6 +33,18 @@ const kTitleHeroTagPrefix = 'title-';
 const kDescriptionHeroTagPrefix = 'description-';
 const kDetailsHeroKeyPrefix = 'details-';
 
+const kPreviewImageBorderRadius = 32.0;
+const kOffsetAnimationControllerLowerBound = -200.0;
+const kOffsetAnimationControllerUpperBound = 200.0;
+const kDragDistanceToClose = 50.0;
+const kDragVelocityToClose = 700.0;
+const kMinImageScaleOnDrag = 0.9;
+final kSpringDesription = SpringDescription.withDampingRatio(
+  mass: 2,
+  stiffness: 70,
+  ratio: 0.5,
+);
+
 const kEightThousanders = [
   EightThousander(
     image: 'assets/images/mount-everest.jpeg',

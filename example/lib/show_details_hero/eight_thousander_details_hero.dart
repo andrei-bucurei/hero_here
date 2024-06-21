@@ -12,16 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import 'dart:math';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
 import 'package:hero_here/hero_here.dart';
 
 import 'config.dart';
 import 'eight_thousander.dart';
+import 'util.dart';
 
 class EightThousanderDetailsHero extends StatefulWidget {
   final String tag;
   final EightThousander eightThousander;
-  final VoidCallback? onClose;
+  final ValueChanged<DragEndDetails>? onClose;
 
   const EightThousanderDetailsHero({
     super.key,
@@ -35,8 +39,12 @@ class EightThousanderDetailsHero extends StatefulWidget {
       _EightThousanderDetailsHeroState();
 }
 
-class _EightThousanderDetailsHeroState
-    extends State<EightThousanderDetailsHero> {
+class _EightThousanderDetailsHeroState extends State<EightThousanderDetailsHero>
+    with SingleTickerProviderStateMixin {
+  Offset _curOffset = Offset.zero;
+  late AnimationController _offsetController;
+  late Animation<Offset> _offsetAnimation;
+
   String get tag => widget.tag;
 
   TextStyle get titleStyle => Theme.of(context)
@@ -44,21 +52,99 @@ class _EightThousanderDetailsHeroState
       .titleLarge!
       .copyWith(fontWeight: FontWeight.w900);
 
+  Size get screenSize => MediaQuery.sizeOf(context);
+
+  Size get imageSize => Size(
+      min(screenSize.width, kGridViewConstraints.maxWidth),
+      min(screenSize.width, kGridViewConstraints.maxWidth) * kGoldenRatio);
+
+  BorderRadius get imageBorderRadius =>
+      BorderRadius.circular(kPreviewImageBorderRadius *
+          (min(_curOffset.distance, kDragDistanceToClose) /
+              kDragDistanceToClose));
+
+  double get draggedToClose =>
+      min(_curOffset.distance, kDragDistanceToClose) / kDragDistanceToClose;
+
+  double get imageScale => 1.0 - (1.0 - kMinImageScaleOnDrag) * draggedToClose;
+
+  double get titleOrDescriptionOpacity {
+    return 1.0 - draggedToClose;
+    // TODO: checkout
+    // return 1.0 -
+    //     (min(max(0, _curOffset.dy), kDragDistanceToClose) /
+    //         kDragDistanceToClose);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _offsetController = AnimationController(
+      vsync: this,
+      lowerBound: kOffsetAnimationControllerLowerBound,
+      upperBound: kOffsetAnimationControllerUpperBound,
+    )..addListener(() => setState(() => _curOffset = _offsetAnimation.value));
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    _offsetController.dispose();
+  }
+
   @override
   Widget build(BuildContext context) => ListView(
         padding: EdgeInsets.zero,
         children: [
-          AspectRatio(
-            aspectRatio: 1 / kGoldenRatio,
-            child: _buildImageHero(),
+          Transform.translate(
+            offset: _curOffset,
+            child: SizedBox(
+              width: imageSize.width,
+              height: imageSize.height,
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: SizedBox(
+                  width: imageSize.width * imageScale,
+                  child: GestureDetector(
+                    onPanDown: (details) {
+                      _offsetController.stop();
+                    },
+                    onPanUpdate: (details) =>
+                        setState(() => _curOffset += details.delta / 2),
+                    onPanEnd: (details) {
+                      if (_shouldClose(details)) {
+                        widget.onClose?.call(details);
+                      } else {
+                        _runImageOffsetAnimation(
+                          velocity: details.getUnitVelocity(screenSize),
+                        );
+                      }
+                    },
+                    child: AspectRatio(
+                      aspectRatio: 1 / kGoldenRatio,
+                      child: ClipRRect(
+                        borderRadius: imageBorderRadius,
+                        child: _buildImageHero(),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: _buildTitleHero(),
+          Transform.translate(
+            offset: Offset(0, _curOffset.dy),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: _buildTitleHero(),
+            ),
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: _buildDescriptionHero(),
+          Transform.translate(
+            offset: Offset(0, _curOffset.dy),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _buildDescriptionHero(),
+            ),
           ),
           const SizedBox(height: 32),
         ],
@@ -66,6 +152,7 @@ class _EightThousanderDetailsHeroState
   HeroHere _buildImageHero() => HeroHere(
         key: ValueKey('$kDetailsHeroKeyPrefix$kImageHeroTagPrefix$tag'),
         tag: '$kImageHeroTagPrefix$tag',
+        payload: imageBorderRadius,
         flightShuttleBuilder: _buildImageHeroFlightShuttle,
         child: Image(
           fit: BoxFit.cover,
@@ -79,9 +166,12 @@ class _EightThousanderDetailsHeroState
         tag: '$kTitleHeroTagPrefix$tag',
         rectTweenFactory: _createTitleOrDescriptionHeroRectTween,
         flightShuttleBuilder: _buildTitleOrDescriptionHeroFlightShuttle,
-        child: Text(
-          widget.eightThousander.name,
-          style: titleStyle,
+        child: Opacity(
+          opacity: titleOrDescriptionOpacity,
+          child: Text(
+            widget.eightThousander.name,
+            style: titleStyle,
+          ),
         ),
       );
 
@@ -90,10 +180,13 @@ class _EightThousanderDetailsHeroState
         tag: '$kDescriptionHeroTagPrefix$tag',
         rectTweenFactory: _createTitleOrDescriptionHeroRectTween,
         flightShuttleBuilder: _buildTitleOrDescriptionHeroFlightShuttle,
-        child: Text(
-          widget.eightThousander.description,
-          softWrap: true,
-          maxLines: null,
+        child: Opacity(
+          opacity: titleOrDescriptionOpacity,
+          child: Text(
+            widget.eightThousander.description,
+            softWrap: true,
+            maxLines: null,
+          ),
         ),
       );
 
@@ -110,7 +203,7 @@ class _EightThousanderDetailsHeroState
             animation: animation,
             builder: (context, child) => ClipRRect(
               borderRadius: BorderRadiusTween(
-                begin: BorderRadius.circular(32),
+                begin: BorderRadius.circular(kPreviewImageBorderRadius),
                 end: BorderRadius.zero,
               ).evaluate(animation)!,
               child: child,
@@ -133,4 +226,21 @@ class _EightThousanderDetailsHeroState
         opacity: animation,
         child: toHero.child,
       );
+
+  bool _shouldClose(DragEndDetails details) =>
+      (_curOffset.dy > kDragDistanceToClose && _curOffset.dy > 0) ||
+      (details.velocity.pixelsPerSecond.dy > kDragDistanceToClose);
+
+  void _runImageOffsetAnimation({
+    Offset endOffset = Offset.zero,
+    required double velocity,
+  }) {
+    _offsetAnimation = _offsetController.drive(
+      Tween<Offset>(begin: _curOffset, end: endOffset),
+    );
+
+    _offsetController.animateWith(
+      SpringSimulation(kSpringDesription, 0, 1, velocity),
+    );
+  }
 }

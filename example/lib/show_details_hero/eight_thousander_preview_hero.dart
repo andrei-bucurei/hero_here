@@ -22,12 +22,18 @@ class EightThousanderPreviewHero extends StatefulWidget {
   final String tag;
   final EightThousander eightThousander;
   final VoidCallback? onTap;
+  final AnimationControllerFactory? imageHeroFlightAnimationControllerFactory;
+  final AnimationFactory<double>? imageHeroFlightAnimationFactory;
+  final StartAnimationCaller? forwardImageHeroFlightAnimation;
 
   const EightThousanderPreviewHero({
     super.key,
     required this.tag,
     required this.eightThousander,
     this.onTap,
+    this.imageHeroFlightAnimationControllerFactory,
+    this.imageHeroFlightAnimationFactory,
+    this.forwardImageHeroFlightAnimation,
   });
 
   @override
@@ -64,10 +70,14 @@ class _EightThousanderPreviewHeroState
   HeroHere _buildImageHero() => HeroHere(
         key: ValueKey('$kImageHeroTagPrefix$tag'),
         tag: '$kImageHeroTagPrefix$tag',
+        flightAnimationControllerFactory:
+            widget.imageHeroFlightAnimationControllerFactory,
+        flightAnimationFactory: widget.imageHeroFlightAnimationFactory,
+        forwardFlightAnimation: widget.forwardImageHeroFlightAnimation,
         flightShuttleBuilder: _buildImageHeroFlightShuttle,
         child: ClipRRect(
           clipBehavior: Clip.antiAlias,
-          borderRadius: BorderRadius.circular(32),
+          borderRadius: BorderRadius.circular(kPreviewImageBorderRadius),
           child: Image(
             width: double.infinity,
             fit: BoxFit.cover,
@@ -103,23 +113,25 @@ class _EightThousanderPreviewHeroState
     Animation<double> animation,
     HeroHere fromHero,
     HeroHere toHero,
-  ) =>
-      Stack(
-        fit: StackFit.expand,
-        children: [
-          AnimatedBuilder(
-            animation: animation,
-            builder: (context, child) => ClipRRect(
-              borderRadius: BorderRadiusTween(
-                begin: BorderRadius.zero,
-                end: BorderRadius.circular(32),
-              ).evaluate(animation)!,
-              child: child,
-            ),
-            child: fromHero.child,
+  ) {
+    final fromBorderRadius = fromHero.payload as BorderRadius;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        AnimatedBuilder(
+          animation: animation,
+          builder: (context, child) => ClipRRect(
+            borderRadius: BorderRadiusTween(
+              begin: fromBorderRadius,
+              end: BorderRadius.circular(kPreviewImageBorderRadius),
+            ).evaluate(animation)!,
+            child: child,
           ),
-        ],
-      );
+          child: fromHero.child,
+        ),
+      ],
+    );
+  }
 
   RectTween _createTitleOrDescriptionHeroRectTween(Rect? begin, Rect? end) =>
       RectTween(begin: begin, end: begin);
