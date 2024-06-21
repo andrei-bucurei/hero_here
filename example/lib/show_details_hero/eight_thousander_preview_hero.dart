@@ -64,6 +64,7 @@ class _EightThousanderPreviewHeroState
   HeroHere _buildImageHero() => HeroHere(
         key: ValueKey('$kImageHeroTagPrefix$tag'),
         tag: '$kImageHeroTagPrefix$tag',
+        flightShuttleBuilder: _buildImageHeroFlightShuttle,
         child: ClipRRect(
           clipBehavior: Clip.antiAlias,
           borderRadius: BorderRadius.circular(32),
@@ -95,6 +96,29 @@ class _EightThousanderPreviewHeroState
         rectTweenFactory: _createTitleOrDescriptionHeroRectTween,
         flightShuttleBuilder: _buildTitleOrDescriptionHeroFlightShuttle,
         child: const SizedBox(),
+      );
+
+  Widget _buildImageHeroFlightShuttle(
+    BuildContext flightContext,
+    Animation<double> animation,
+    HeroHere fromHero,
+    HeroHere toHero,
+  ) =>
+      Stack(
+        fit: StackFit.expand,
+        children: [
+          AnimatedBuilder(
+            animation: animation,
+            builder: (context, child) => ClipRRect(
+              borderRadius: BorderRadiusTween(
+                begin: BorderRadius.zero,
+                end: BorderRadius.circular(32),
+              ).evaluate(animation)!,
+              child: child,
+            ),
+            child: fromHero.child,
+          ),
+        ],
       );
 
   RectTween _createTitleOrDescriptionHeroRectTween(Rect? begin, Rect? end) =>

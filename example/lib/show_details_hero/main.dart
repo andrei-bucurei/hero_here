@@ -13,13 +13,16 @@
 // limitations under the License.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:hero_here/hero_here.dart';
 
 import 'config.dart';
 import 'eight_thousander_details_hero.dart';
 import 'eight_thousander_preview_hero.dart';
 
-void main() => runApp(
+void main() {
+  timeDilation = 10;
+  runApp(
       MaterialApp(
         title: 'HeroHere Example',
         debugShowCheckedModeBanner: false,
@@ -28,6 +31,7 @@ void main() => runApp(
         home: const ShowDetailsExample(),
       ),
     );
+}
 
 class ShowDetailsExample extends StatefulWidget {
   const ShowDetailsExample({super.key});

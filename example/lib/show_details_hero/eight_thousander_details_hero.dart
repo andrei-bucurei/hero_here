@@ -63,16 +63,14 @@ class _EightThousanderDetailsHeroState
           const SizedBox(height: 32),
         ],
       );
-
-  HeroHere _buildDescriptionHero() => HeroHere(
-        key: ValueKey('$kDetailsHeroKeyPrefix$kDescriptionHeroTagPrefix$tag'),
-        tag: '$kDescriptionHeroTagPrefix$tag',
-        rectTweenFactory: _createTitleOrDescriptionHeroRectTween,
-        flightShuttleBuilder: _buildTitleOrDescriptionHeroFlightShuttle,
-        child: Text(
-          widget.eightThousander.description,
-          softWrap: true,
-          maxLines: null,
+  HeroHere _buildImageHero() => HeroHere(
+        key: ValueKey('$kDetailsHeroKeyPrefix$kImageHeroTagPrefix$tag'),
+        tag: '$kImageHeroTagPrefix$tag',
+        flightShuttleBuilder: _buildImageHeroFlightShuttle,
+        child: Image(
+          fit: BoxFit.cover,
+          alignment: Alignment.topCenter,
+          image: AssetImage(widget.eightThousander.image),
         ),
       );
 
@@ -87,14 +85,39 @@ class _EightThousanderDetailsHeroState
         ),
       );
 
-  HeroHere _buildImageHero() => HeroHere(
-        key: ValueKey('$kDetailsHeroKeyPrefix$kImageHeroTagPrefix$tag'),
-        tag: '$kImageHeroTagPrefix$tag',
-        child: Image(
-          fit: BoxFit.cover,
-          alignment: Alignment.topCenter,
-          image: AssetImage(widget.eightThousander.image),
+  HeroHere _buildDescriptionHero() => HeroHere(
+        key: ValueKey('$kDetailsHeroKeyPrefix$kDescriptionHeroTagPrefix$tag'),
+        tag: '$kDescriptionHeroTagPrefix$tag',
+        rectTweenFactory: _createTitleOrDescriptionHeroRectTween,
+        flightShuttleBuilder: _buildTitleOrDescriptionHeroFlightShuttle,
+        child: Text(
+          widget.eightThousander.description,
+          softWrap: true,
+          maxLines: null,
         ),
+      );
+
+  Widget _buildImageHeroFlightShuttle(
+    BuildContext flightContext,
+    Animation<double> animation,
+    HeroHere fromHero,
+    HeroHere toHero,
+  ) =>
+      Stack(
+        fit: StackFit.expand,
+        children: [
+          AnimatedBuilder(
+            animation: animation,
+            builder: (context, child) => ClipRRect(
+              borderRadius: BorderRadiusTween(
+                begin: BorderRadius.circular(32),
+                end: BorderRadius.zero,
+              ).evaluate(animation)!,
+              child: child,
+            ),
+            child: toHero.child,
+          ),
+        ],
       );
 
   RectTween _createTitleOrDescriptionHeroRectTween(Rect? begin, Rect? end) =>
