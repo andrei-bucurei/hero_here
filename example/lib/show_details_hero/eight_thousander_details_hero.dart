@@ -68,13 +68,7 @@ class _EightThousanderDetailsHeroState extends State<EightThousanderDetailsHero>
 
   double get imageScale => 1.0 - (1.0 - kMinImageScaleOnDrag) * draggedToClose;
 
-  double get titleOrDescriptionOpacity {
-    return 1.0 - draggedToClose;
-    // TODO: checkout
-    // return 1.0 -
-    //     (min(max(0, _curOffset.dy), kDragDistanceToClose) /
-    //         kDragDistanceToClose);
-  }
+  double get titleOrDescriptionOpacity => 1.0 - draggedToClose;
 
   @override
   void initState() {
@@ -154,6 +148,7 @@ class _EightThousanderDetailsHeroState extends State<EightThousanderDetailsHero>
         tag: '$kImageHeroTagPrefix$tag',
         payload: imageBorderRadius,
         flightShuttleBuilder: _buildImageHeroFlightShuttle,
+        rectTweenFactory: _createImageHeroRectTween,
         child: Image(
           fit: BoxFit.cover,
           alignment: Alignment.topCenter,
@@ -212,6 +207,9 @@ class _EightThousanderDetailsHeroState extends State<EightThousanderDetailsHero>
           ),
         ],
       );
+
+  RectTween _createImageHeroRectTween(Rect? begin, Rect? end) =>
+      RectTween(begin: begin, end: end);
 
   RectTween _createTitleOrDescriptionHeroRectTween(Rect? begin, Rect? end) =>
       RectTween(begin: end, end: end);

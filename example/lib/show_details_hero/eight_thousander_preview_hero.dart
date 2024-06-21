@@ -14,6 +14,7 @@
 
 import 'package:example/show_details_hero/config.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:hero_here/hero_here.dart';
 
 import 'eight_thousander.dart';
@@ -21,7 +22,7 @@ import 'eight_thousander.dart';
 class EightThousanderPreviewHero extends StatefulWidget {
   final String tag;
   final EightThousander eightThousander;
-  final VoidCallback? onTap;
+  final ValueChanged<BuildContext>? onTap;
   final AnimationControllerFactory? imageHeroFlightAnimationControllerFactory;
   final AnimationFactory<double>? imageHeroFlightAnimationFactory;
   final StartAnimationCaller? forwardImageHeroFlightAnimation;
@@ -43,6 +44,8 @@ class EightThousanderPreviewHero extends StatefulWidget {
 
 class _EightThousanderPreviewHeroState
     extends State<EightThousanderPreviewHero> {
+  Offset? _imagePosition;
+
   String get tag => widget.tag;
 
   TextStyle get titleStyle => Theme.of(context)
@@ -52,7 +55,7 @@ class _EightThousanderPreviewHeroState
 
   @override
   Widget build(BuildContext context) => GestureDetector(
-        onTap: widget.onTap,
+        onTap: widget.onTap != null ? _onTap : null,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -74,6 +77,7 @@ class _EightThousanderPreviewHeroState
             widget.imageHeroFlightAnimationControllerFactory,
         flightAnimationFactory: widget.imageHeroFlightAnimationFactory,
         forwardFlightAnimation: widget.forwardImageHeroFlightAnimation,
+        rectTweenFactory: _createImageHeroRectTween,
         flightShuttleBuilder: _buildImageHeroFlightShuttle,
         child: ClipRRect(
           clipBehavior: Clip.antiAlias,
@@ -133,6 +137,11 @@ class _EightThousanderPreviewHeroState
     );
   }
 
+  RectTween _createImageHeroRectTween(Rect? begin, Rect? end) => RectTween(
+        begin: begin,
+        end: _imagePosition! & end!.size,
+      );
+
   RectTween _createTitleOrDescriptionHeroRectTween(Rect? begin, Rect? end) =>
       RectTween(begin: begin, end: begin);
 
@@ -146,4 +155,10 @@ class _EightThousanderPreviewHeroState
         opacity: ReverseAnimation(animation),
         child: fromHero.child,
       );
+
+  void _onTap() {
+    final renderBox = context.findRenderObject() as RenderBox;
+    _imagePosition = renderBox.localToGlobal(Offset.zero);
+    widget.onTap?.call(context);
+  }
 }

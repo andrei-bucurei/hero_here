@@ -19,7 +19,7 @@ import 'eight_thousander.dart';
 const kGoldenRatio = 1.618;
 
 const kGridViewConstraints = BoxConstraints(maxWidth: 560);
-const kGridViewScaleOnOpen = 1.2;
+const kGridViewScaleWhenDetailsOpen = 1.2;
 const kGridViewOpacityOnOpen = 0.1;
 const kGridViewDelegate = SliverGridDelegateWithFixedCrossAxisCount(
   crossAxisCount: 2,

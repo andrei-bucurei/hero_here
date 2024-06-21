@@ -41,6 +41,8 @@ class ShowDetailsExample extends StatefulWidget {
 class _ShowDetailsExampleState extends State<ShowDetailsExample> {
   int? _showDetailsIndex;
   DragEndDetails? _dragEndDetailsOnClose;
+  Offset _gridViewOffset = Offset.zero;
+  bool _isHeroSwitching = false;
 
   bool get detailsVisible => _showDetailsIndex != null;
 
@@ -62,7 +64,7 @@ class _ShowDetailsExampleState extends State<ShowDetailsExample> {
                   key: UniqueKey(),
                   child: IconButton(
                     icon: const Icon(Icons.chevron_left),
-                    onPressed: _closeDetails,
+                    onPressed: _isHeroSwitching ? null : _closeDetails,
                   ),
                 )
               : SizedBox(key: UniqueKey()),
@@ -79,18 +81,28 @@ class _ShowDetailsExampleState extends State<ShowDetailsExample> {
                 child: Stack(
                   alignment: Alignment.topCenter,
                   children: [
-                    AnimatedOpacity(
+                    AnimatedSlide(
+                      offset: _gridViewOffset,
                       duration: HeroHere.defaultFlightAnimationDuration,
                       curve: HeroHere.defaultFlightAnimationCurve,
-                      opacity: detailsVisible ? kGridViewOpacityOnOpen : 1.0,
-                      child: IgnorePointer(
-                        ignoring: detailsVisible,
-                        child: GridView.builder(
-                          clipBehavior: Clip.none,
-                          padding: const EdgeInsets.all(8),
-                          gridDelegate: kGridViewDelegate,
-                          itemCount: kEightThousanders.length,
-                          itemBuilder: _buildGridItem,
+                      child: AnimatedScale(
+                        scale: _gridViewScale,
+                        duration: HeroHere.defaultFlightAnimationDuration,
+                        curve: HeroHere.defaultFlightAnimationCurve,
+                        child: AnimatedOpacity(
+                          opacity: _gridViewOpacity,
+                          duration: HeroHere.defaultFlightAnimationDuration,
+                          curve: HeroHere.defaultFlightAnimationCurve,
+                          child: IgnorePointer(
+                            ignoring: detailsVisible,
+                            child: GridView.builder(
+                              clipBehavior: Clip.none,
+                              padding: const EdgeInsets.all(8),
+                              gridDelegate: kGridViewDelegate,
+                              itemCount: kEightThousanders.length,
+                              itemBuilder: _buildGridItem,
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -109,7 +121,7 @@ class _ShowDetailsExampleState extends State<ShowDetailsExample> {
     return EightThousanderPreviewHero(
       tag: eightThousander.image,
       eightThousander: eightThousander,
-      onTap: () => _showDetails(index),
+      onTap: (context) => _showDetails(context, index),
       imageHeroFlightAnimationControllerFactory: _dragEndDetailsOnClose == null
           ? HeroHere.defaultFlightAnimationControllerFactory
           : (tickerProvider, _) => AnimationController(
@@ -117,10 +129,19 @@ class _ShowDetailsExampleState extends State<ShowDetailsExample> {
                 lowerBound: kOffsetAnimationControllerLowerBound,
                 upperBound: kOffsetAnimationControllerUpperBound,
               ),
-      imageHeroFlightAnimationFactory: (controller) =>
-          _dragEndDetailsOnClose == null
-              ? HeroHere.defaultFlightAnimationFactory(controller)
-              : controller,
+      imageHeroFlightAnimationFactory: (controller) {
+        final animation = _dragEndDetailsOnClose == null
+            ? HeroHere.defaultFlightAnimationFactory(controller)
+            : controller;
+        animation.addStatusListener((status) {
+          if (status == AnimationStatus.completed) {
+            WidgetsBinding.instance.addPostFrameCallback(
+              (_) => setState(() => _isHeroSwitching = false),
+            );
+          }
+        });
+        return animation;
+      },
       forwardImageHeroFlightAnimation: _dragEndDetailsOnClose == null
           ? HeroHere.defaultForwardFlightAnimation
           : (controller, {from}) {
@@ -144,13 +165,53 @@ class _ShowDetailsExampleState extends State<ShowDetailsExample> {
     );
   }
 
-  void _showDetails(int index) => setState(() {
+  void _showDetails(BuildContext context, int index) => setState(() {
+        final renderBox = context.findRenderObject() as RenderBox;
+        final itemPosition = renderBox.localToGlobal(Offset.zero);
+        final itemCenter = renderBox.size.center(itemPosition);
+        _gridViewOffset = _computeGridViewSlideOffset(index, itemCenter);
         _showDetailsIndex = index;
         _dragEndDetailsOnClose = null;
+        _isHeroSwitching = true;
       });
 
   void _closeDetails([DragEndDetails? dragEndDetails]) => setState(() {
+        _gridViewOffset = Offset.zero;
         _dragEndDetailsOnClose = dragEndDetails;
         _showDetailsIndex = null;
+        _isHeroSwitching = true;
       });
+
+  double get _gridViewScale =>
+      detailsVisible ? kGridViewScaleWhenDetailsOpen : 1.0;
+
+  double get _gridViewOpacity => detailsVisible ? kGridViewOpacityOnOpen : 1.0;
+
+  Offset _computeGridViewSlideOffset(int index, Offset begin) {
+    final screenSize = MediaQuery.sizeOf(context);
+    final a = begin;
+    final b = Offset(screenSize.width / 2, screenSize.height / 2);
+    final xOffset = b.dx - a.dx;
+    final yOffset = b.dy - a.dy;
+    final maxXOffset =
+        screenSize.width * (kGridViewScaleWhenDetailsOpen - 1) / 2;
+    final maxYOffset =
+        screenSize.height * (kGridViewScaleWhenDetailsOpen - 1) / 2;
+    Offset e = a;
+
+    if (xOffset.abs() > maxXOffset) {
+      final x = a.dx + xOffset.sign * maxXOffset;
+      final y = (x - a.dx) * (b.dy - a.dy) / (b.dx - a.dx) + a.dy;
+      e = Offset(x, y);
+    } else if (yOffset.abs() > maxYOffset) {
+      final y = a.dy + yOffset.sign * maxYOffset;
+      final x = (y - a.dy) * (b.dx - a.dx) / (b.dy - a.dy) + a.dx;
+      e = Offset(x, y);
+    }
+
+    return (e - a).scale(
+      1 / screenSize.width,
+      1 / screenSize.height,
+    );
+  }
 }
