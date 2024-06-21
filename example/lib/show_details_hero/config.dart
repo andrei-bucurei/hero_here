@@ -28,6 +28,11 @@ const kGridViewDelegate = SliverGridDelegateWithFixedCrossAxisCount(
   crossAxisSpacing: 16,
 );
 
+const kImageHeroTagPrefix = 'image-';
+const kTitleHeroTagPrefix = 'title-';
+const kDescriptionHeroTagPrefix = 'description-';
+const kDetailsHeroKeyPrefix = 'details-';
+
 const kEightThousanders = [
   EightThousander(
     image: 'assets/images/mount-everest.jpeg',

@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import 'package:example/show_details_hero/eight_thousander_details.dart';
 import 'package:flutter/material.dart';
+import 'package:hero_here/hero_here.dart';
 
 import 'config.dart';
-import 'eight_thousander_preview.dart';
+import 'eight_thousander_details_hero.dart';
+import 'eight_thousander_preview_hero.dart';
 
 void main() => runApp(
       MaterialApp(
@@ -51,7 +52,7 @@ class _ShowDetailsExampleState extends State<ShowDetailsExample> {
   AppBar _buildAppBar() => AppBar(
         forceMaterialTransparency: true,
         leading: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 500),
+          duration: HeroHere.defaultFlightAnimationDuration,
           child: detailsVisible
               ? Material(
                   color: Colors.transparent,
@@ -65,48 +66,56 @@ class _ShowDetailsExampleState extends State<ShowDetailsExample> {
         ),
       );
 
-  Widget _buildBody() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Flexible(
-          child: ConstrainedBox(
-            constraints: kGridViewConstraints,
-            child: Stack(
-              alignment: Alignment.topCenter,
-              children: [
-                AnimatedOpacity(
-                  duration: const Duration(milliseconds: 350),
-                  opacity: detailsVisible ? kGridViewOpacityOnOpen : 1.0,
-                  child: IgnorePointer(
-                    ignoring: detailsVisible,
-                    child: GridView.builder(
-                      clipBehavior: Clip.none,
-                      padding: const EdgeInsets.all(8),
-                      gridDelegate: kGridViewDelegate,
-                      itemCount: kEightThousanders.length,
-                      itemBuilder: _buildGridItem,
+  Widget _buildBody() => HeroHereSwitcher(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Flexible(
+              child: ConstrainedBox(
+                constraints: kGridViewConstraints,
+                child: Stack(
+                  alignment: Alignment.topCenter,
+                  children: [
+                    AnimatedOpacity(
+                      duration: HeroHere.defaultFlightAnimationDuration,
+                      curve: HeroHere.defaultFlightAnimationCurve,
+                      opacity: detailsVisible ? kGridViewOpacityOnOpen : 1.0,
+                      child: IgnorePointer(
+                        ignoring: detailsVisible,
+                        child: GridView.builder(
+                          clipBehavior: Clip.none,
+                          padding: const EdgeInsets.all(8),
+                          gridDelegate: kGridViewDelegate,
+                          itemCount: kEightThousanders.length,
+                          itemBuilder: _buildGridItem,
+                        ),
+                      ),
                     ),
-                  ),
+                    if (detailsVisible) _buildDetails(_showDetailsIndex!),
+                  ],
                 ),
-                if (detailsVisible) _buildDetails(_showDetailsIndex!),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
-      ],
+      );
+
+  Widget _buildGridItem(BuildContext context, int index) {
+    final eightThousander = kEightThousanders[index];
+
+    return EightThousanderPreviewHero(
+      tag: eightThousander.image,
+      eightThousander: eightThousander,
+      onTap: () => _showDetails(index),
     );
   }
 
-  Widget _buildGridItem(BuildContext context, int index) =>
-      EightThousanderPreview(
-        eightThousander: kEightThousanders[index],
-        onTap: () => _showDetails(index),
-      );
-
   Widget _buildDetails(int index) {
-    return EightThousanderDetails(
-      eightThousander: kEightThousanders[index],
+    final eightThousander = kEightThousanders[index];
+
+    return EightThousanderDetailsHero(
+      tag: eightThousander.image,
+      eightThousander: eightThousander,
       onClose: _closeDetails,
     );
   }
