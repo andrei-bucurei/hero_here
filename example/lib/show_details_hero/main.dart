@@ -94,7 +94,7 @@ class _ShowDetailsExampleState extends State<ShowDetailsExample> {
                           duration: HeroHere.defaultFlightAnimationDuration,
                           curve: HeroHere.defaultFlightAnimationCurve,
                           child: IgnorePointer(
-                            ignoring: detailsVisible,
+                            ignoring: _isHeroSwitching,
                             child: GridView.builder(
                               clipBehavior: Clip.none,
                               padding: const EdgeInsets.all(8),
