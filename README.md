@@ -37,7 +37,7 @@ flutter pub get
 
 ## Usage
 
-More advanced examples can be found in the `example` folder or by following this [link](https://github.com/igorkurilenko/hero_here/tree/main/example/lib).
+More advanced examples can be found in the `example` folder or by following [this link](https://github.com/igorkurilenko/hero_here/tree/main/example/lib).
 
 Here’s a basic example of how to use **hero_here**:
 
