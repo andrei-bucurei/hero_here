@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import 'eight_thousander.dart';
@@ -34,15 +35,17 @@ const kDescriptionHeroTagPrefix = 'description-';
 const kDetailsHeroKeyPrefix = 'details-';
 
 const kPreviewImageBorderRadius = 32.0;
-const kOffsetAnimationControllerLowerBound = -200.0;
-const kOffsetAnimationControllerUpperBound = 200.0;
 const kDragDistanceToClose = 50.0;
-const kDragVelocityToClose = 700.0;
+const kDragVelocityToClose = 300.0;
 const kMinImageScaleOnDrag = 0.9;
-final kSpringDesription = SpringDescription.withDampingRatio(
-  mass: 2,
-  stiffness: 70,
-  ratio: 0.5,
+
+final kScrollBehavior = const MaterialScrollBehavior().copyWith(
+  dragDevices: {
+    PointerDeviceKind.mouse,
+    PointerDeviceKind.touch,
+    PointerDeviceKind.stylus,
+    PointerDeviceKind.unknown,
+  },
 );
 
 const kEightThousanders = [

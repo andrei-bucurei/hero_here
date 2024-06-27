@@ -1,39 +1,191 @@
-<!--
-This README describes the package. If you publish this package to pub.dev,
-this README's contents appear on the landing page for your package.
+A Flutter library that enables hero transitions on the same screen without the need for navigation.
 
-For information about how to write a good package README, see the guide for
-[writing package pages](https://dart.dev/guides/libraries/writing-package-pages).
+<p>
+  <img src="https://github.com/igorkurilenko/hero_here/blob/main/assets/hero_here_basic.gif?raw=true"
+    alt="The hero_here basic example" width="180"/>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="https://github.com/igorkurilenko/hero_here/blob/main/assets/hero_here_chat_message.gif?raw=true"
+   alt="The hero_here chat message example" width="180"/>
+  <img src="https://github.com/igorkurilenko/hero_here/blob/main/assets/hero_here_show_details.gif?raw=true"
+   alt="The hero_here show details example" width="180"/>
+</p>
 
-For general information about developing packages, see the Dart guide for
-[creating packages](https://dart.dev/guides/libraries/create-library-packages)
-and the Flutter guide for
-[developing packages and plugins](https://flutter.dev/developing-packages).
--->
+## Purpose
 
-TODO: Put a short description of the package here that helps potential users
-know whether this package might be useful for them.
+**hero_here** is designed to help developers create seamless and visually appealing transitions within a single screen using the hero animation pattern. It is inspired by Flutter's `AnimatedSwitcher` and `Hero` mechanics and provides a convenient way to achieve these transitions without requiring navigation.
 
 ## Features
 
-TODO: List what your package can do. Maybe include images, gifs, or videos.
+- Allows hero transitions within the same screen.
+- Similar widgets to `AnimatedSwitcher` and `Hero`: `HeroHereSwitcher` and `HeroHere`.
+- Customizable flight animations
 
-## Getting started
+## Getting Started
 
-TODO: List prerequisites and provide or point to information on how to
-start using the package.
+Add the following line to your `pubspec.yaml` file:
+
+```yaml
+dependencies:
+  hero_here: ^1.0.0
+```
+
+Then, run:
+
+```bash
+flutter pub get
+```
 
 ## Usage
 
-TODO: Include short and useful examples for package users. Add longer examples
-to `/example` folder.
+More advanced examples can be found in the `example` folder or by following this [link](https://github.com/igorkurilenko/hero_here/tree/main/example/lib).
+
+Here’s a basic example of how to use **hero_here**:
 
 ```dart
-const like = 'sample';
+import 'package:flutter/material.dart';
+import 'package:hero_here/hero_here.dart';
+
+const kHeroTag = 'hero';
+
+void main() => runApp(
+      MaterialApp(
+        title: 'HeroHere Example',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(useMaterial3: true, brightness: Brightness.light),
+        darkTheme: ThemeData(useMaterial3: true, brightness: Brightness.dark),
+        home: const HeroHereExample(),
+      ),
+    );
+
+enum HeroType { red, green }
+
+class HeroHereExample extends StatefulWidget {
+  const HeroHereExample({super.key});
+
+  @override
+  State<HeroHereExample> createState() => _HeroHereExampleState();
+}
+
+class _HeroHereExampleState extends State<HeroHereExample> {
+  HeroType _curHeroType = HeroType.red;
+
+  HeroType get curHeroType => _curHeroType;
+
+  set curHeroType(HeroType value) {
+    if (_curHeroType == value) return;
+    setState(() => _curHeroType = value);
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        body: HeroHereSwitcher(
+          child: Center(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                SizedBox(
+                  width: 100,
+                  height: 100,
+                  child: curHeroType == HeroType.red
+                      ? HeroHere(
+                          key: const ValueKey(HeroType.red),
+                          tag: kHeroTag,
+                          flightShuttleBuilder: _flightShuttleBuilder,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              borderRadius: BorderRadius.circular(75),
+                            ),
+                          ),
+                        )
+                      : null,
+                ),
+                SizedBox(
+                  width: 150,
+                  height: 150,
+                  child: curHeroType == HeroType.green
+                      ? HeroHere(
+                          key: const ValueKey(HeroType.green),
+                          tag: kHeroTag,
+                          flightShuttleBuilder: _flightShuttleBuilder,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.green,
+                              borderRadius: BorderRadius.circular(75),
+                            ),
+                          ),
+                        )
+                      : null,
+                ),
+              ],
+            ),
+          ),
+        ),
+        bottomNavigationBar: BottomAppBar(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    onPressed: () => curHeroType = HeroType.red,
+                    icon: Icon(curHeroType == HeroType.red
+                        ? Icons.circle
+                        : Icons.radio_button_off),
+                    color: curHeroType == HeroType.red
+                        ? Colors.red
+                        : Theme.of(context).colorScheme.secondary,
+                  ),
+                ],
+              ),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    onPressed: () => curHeroType = HeroType.green,
+                    icon: Icon(curHeroType == HeroType.green
+                        ? Icons.circle
+                        : Icons.radio_button_off),
+                    color: curHeroType == HeroType.green
+                        ? Colors.green
+                        : Theme.of(context).colorScheme.secondary,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+
+  Widget _flightShuttleBuilder(
+    BuildContext flightContext,
+    Animation<double> animation,
+    HeroHere fromHero,
+    HeroHere toHero,
+  ) =>
+      Stack(
+        fit: StackFit.expand,
+        children: [
+          toHero.child,
+          FadeTransition(
+            opacity: ReverseAnimation(animation),
+            child: fromHero.child,
+          ),
+        ],
+      );
+}
 ```
 
-## Additional information
+## Support and Contact
 
-TODO: Tell users more about the package: where to find more information, how to
-contribute to the package, how to file issues, what response they can expect
-from the package authors, and more.
+For any questions or issues related to **hero_here**, please contact me via email at [mail@igorkurilenko.dev](mailto:mail@igorkurilenko.dev).
+
+
+## Contributing
+
+Contributions are welcome! Feel free to submit pull requests on [GitHub](https://github.com/igorkurilenko/hero_here) to help improve **hero_here**.
+
+## Author and License
+
+**hero_here** was created by Igor Kurilenko and is licensed under Apache 2.0.

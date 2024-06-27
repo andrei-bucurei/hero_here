@@ -14,18 +14,17 @@
 
 import 'dart:math';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/physics.dart';
 import 'package:hero_here/hero_here.dart';
 
 import 'config.dart';
 import 'eight_thousander.dart';
-import 'util.dart';
 
 class EightThousanderDetailsHero extends StatefulWidget {
   final String tag;
   final EightThousander eightThousander;
-  final ValueChanged<DragEndDetails>? onClose;
+  final ValueChanged<Velocity>? onClose;
 
   const EightThousanderDetailsHero({
     super.key,
@@ -39,11 +38,11 @@ class EightThousanderDetailsHero extends StatefulWidget {
       _EightThousanderDetailsHeroState();
 }
 
-class _EightThousanderDetailsHeroState extends State<EightThousanderDetailsHero>
-    with SingleTickerProviderStateMixin {
-  Offset _curOffset = Offset.zero;
-  late AnimationController _offsetController;
-  late Animation<Offset> _offsetAnimation;
+class _EightThousanderDetailsHeroState
+    extends State<EightThousanderDetailsHero> {
+  final _scrollController = ScrollController();
+  VelocityTracker? _imageDragVelocityTracker;
+  double _factorToClose = 0;
 
   String get tag => widget.tag;
 
@@ -54,66 +53,57 @@ class _EightThousanderDetailsHeroState extends State<EightThousanderDetailsHero>
 
   Size get screenSize => MediaQuery.sizeOf(context);
 
+  double get factorToClose => _factorToClose;
+
+  set factorToClose(double value) {
+    if (_factorToClose == value) return;
+    setState(() => _factorToClose = value);
+  }
+
+  Velocity? get imageDragVelocity => _imageDragVelocityTracker?.getVelocity();
+
   Size get imageSize => Size(
       min(screenSize.width, kGridViewConstraints.maxWidth),
       min(screenSize.width, kGridViewConstraints.maxWidth) * kGoldenRatio);
 
   BorderRadius get imageBorderRadius =>
-      BorderRadius.circular(kPreviewImageBorderRadius *
-          (min(_curOffset.distance, kDragDistanceToClose) /
-              kDragDistanceToClose));
+      BorderRadius.circular(kPreviewImageBorderRadius * factorToClose);
 
-  double get draggedToClose =>
-      min(_curOffset.distance, kDragDistanceToClose) / kDragDistanceToClose;
+  double get imageScale => 1.0 - (1.0 - kMinImageScaleOnDrag) * factorToClose;
 
-  double get imageScale => 1.0 - (1.0 - kMinImageScaleOnDrag) * draggedToClose;
-
-  double get titleOrDescriptionOpacity => 1.0 - draggedToClose;
+  double get titleOrDescriptionOpacity => 1.0 - factorToClose;
 
   @override
   void initState() {
     super.initState();
-    _offsetController = AnimationController(
-      vsync: this,
-      lowerBound: kOffsetAnimationControllerLowerBound,
-      upperBound: kOffsetAnimationControllerUpperBound,
-    )..addListener(() => setState(() => _curOffset = _offsetAnimation.value));
+    _scrollController.addListener(_handleScroll);
   }
 
   @override
   void dispose() {
+    _scrollController.dispose();
     super.dispose();
-    _offsetController.dispose();
   }
 
   @override
-  Widget build(BuildContext context) => ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          Transform.translate(
-            offset: _curOffset,
-            child: SizedBox(
+  Widget build(BuildContext context) => ScrollConfiguration(
+        behavior: kScrollBehavior,
+        child: ListView(
+          controller: _scrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: EdgeInsets.zero,
+          children: [
+            SizedBox(
               width: imageSize.width,
               height: imageSize.height,
               child: Align(
-                alignment: Alignment.bottomCenter,
+                alignment: Alignment.center,
                 child: SizedBox(
                   width: imageSize.width * imageScale,
-                  child: GestureDetector(
-                    onPanDown: (details) {
-                      _offsetController.stop();
-                    },
-                    onPanUpdate: (details) =>
-                        setState(() => _curOffset += details.delta / 2),
-                    onPanEnd: (details) {
-                      if (_shouldClose(details)) {
-                        widget.onClose?.call(details);
-                      } else {
-                        _runImageOffsetAnimation(
-                          velocity: details.getUnitVelocity(screenSize),
-                        );
-                      }
-                    },
+                  child: Listener(
+                    onPointerDown: _handleImagePointerDown,
+                    onPointerMove: _handleImagePointerMove,
+                    onPointerUp: _handleImagePointerUp,
                     child: AspectRatio(
                       aspectRatio: 1 / kGoldenRatio,
                       child: ClipRRect(
@@ -125,23 +115,17 @@ class _EightThousanderDetailsHeroState extends State<EightThousanderDetailsHero>
                 ),
               ),
             ),
-          ),
-          Transform.translate(
-            offset: Offset(0, _curOffset.dy),
-            child: Padding(
+            Padding(
               padding: const EdgeInsets.all(16.0),
               child: _buildTitleHero(),
             ),
-          ),
-          Transform.translate(
-            offset: Offset(0, _curOffset.dy),
-            child: Padding(
+            Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: _buildDescriptionHero(),
             ),
-          ),
-          const SizedBox(height: 32),
-        ],
+            const SizedBox(height: 32),
+          ],
+        ),
       );
   HeroHere _buildImageHero() => HeroHere(
         key: ValueKey('$kDetailsHeroKeyPrefix$kImageHeroTagPrefix$tag'),
@@ -225,20 +209,25 @@ class _EightThousanderDetailsHeroState extends State<EightThousanderDetailsHero>
         child: toHero.child,
       );
 
-  bool _shouldClose(DragEndDetails details) =>
-      (_curOffset.dy > kDragDistanceToClose && _curOffset.dy > 0) ||
-      (details.velocity.pixelsPerSecond.dy > kDragDistanceToClose);
+  void _handleScroll() {
+    if (_scrollController.position.pixels > 0) return;
 
-  void _runImageOffsetAnimation({
-    Offset endOffset = Offset.zero,
-    required double velocity,
-  }) {
-    _offsetAnimation = _offsetController.drive(
-      Tween<Offset>(begin: _curOffset, end: endOffset),
-    );
+    factorToClose =
+        min(_scrollController.position.pixels.abs(), kDragDistanceToClose) /
+            kDragDistanceToClose;
+  }
 
-    _offsetController.animateWith(
-      SpringSimulation(kSpringDesription, 0, 1, velocity),
-    );
+  void _handleImagePointerDown(PointerDownEvent event) =>
+      _imageDragVelocityTracker = VelocityTracker.withKind(event.kind);
+
+  void _handleImagePointerMove(PointerMoveEvent event) =>
+      _imageDragVelocityTracker?.addPosition(event.timeStamp, event.position);
+
+  void _handleImagePointerUp(PointerUpEvent event) {
+    final imageDragVelocityDy = imageDragVelocity?.pixelsPerSecond.dy ?? 0;
+
+    if (factorToClose < 1 && imageDragVelocityDy < kDragVelocityToClose) return;
+
+    widget.onClose?.call(_imageDragVelocityTracker!.getVelocity());
   }
 }

@@ -330,7 +330,7 @@ class _Execute extends _SwitchingState {
 
 class HeroHere extends StatefulWidget {
   static const defaultFlightAnimationCurve = Curves.easeInOut;
-  static const defaultFlightAnimationDuration = Duration(milliseconds: 350);
+  static const defaultFlightAnimationDuration = Duration(milliseconds: 300);
 
   final Object tag;
   final Widget child;

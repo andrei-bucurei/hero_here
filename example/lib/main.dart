@@ -12,15 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import 'dart:async';
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:hero_here/hero_here.dart';
 
 const kHeroTag = 'hero';
-const kAutoHeroSwitchingDuration = Duration(milliseconds: 500);
-const kHeroFlightAnimationDuration = Duration(milliseconds: 1000);
 
 void main() => runApp(
       MaterialApp(
@@ -32,6 +27,8 @@ void main() => runApp(
       ),
     );
 
+enum HeroType { red, green }
+
 class HeroHereExample extends StatefulWidget {
   const HeroHereExample({super.key});
 
@@ -41,32 +38,12 @@ class HeroHereExample extends StatefulWidget {
 
 class _HeroHereExampleState extends State<HeroHereExample> {
   HeroType _curHeroType = HeroType.red;
-  bool _paused = true;
-  Timer? _timer;
 
   HeroType get curHeroType => _curHeroType;
 
   set curHeroType(HeroType value) {
     if (_curHeroType == value) return;
     setState(() => _curHeroType = value);
-  }
-
-  bool get paused => _paused;
-
-  set paused(bool value) {
-    if (value == _paused) return;
-    setState(() {
-      (_paused = value) ? _pauseHeroSwitching() : _startHeroSwitching();
-    });
-  }
-
-  @override
-  void initState() {
-    super.initState();
-
-    if (!paused) {
-      _startHeroSwitching();
-    }
   }
 
   @override
@@ -83,9 +60,13 @@ class _HeroHereExampleState extends State<HeroHereExample> {
                       ? HeroHere(
                           key: const ValueKey(HeroType.red),
                           tag: kHeroTag,
-                          flightAnimationDuration: kHeroFlightAnimationDuration,
                           flightShuttleBuilder: _flightShuttleBuilder,
-                          child: Container(color: Colors.red),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              borderRadius: BorderRadius.circular(75),
+                            ),
+                          ),
                         )
                       : null,
                 ),
@@ -96,22 +77,13 @@ class _HeroHereExampleState extends State<HeroHereExample> {
                       ? HeroHere(
                           key: const ValueKey(HeroType.green),
                           tag: kHeroTag,
-                          flightAnimationDuration: kHeroFlightAnimationDuration,
                           flightShuttleBuilder: _flightShuttleBuilder,
-                          child: Container(color: Colors.green),
-                        )
-                      : null,
-                ),
-                SizedBox(
-                  width: 100,
-                  height: 100,
-                  child: curHeroType == HeroType.blue
-                      ? HeroHere(
-                          key: const ValueKey(HeroType.blue),
-                          tag: kHeroTag,
-                          flightAnimationDuration: kHeroFlightAnimationDuration,
-                          flightShuttleBuilder: _flightShuttleBuilder,
-                          child: Container(color: Colors.blue),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.green,
+                              borderRadius: BorderRadius.circular(75),
+                            ),
+                          ),
                         )
                       : null,
                 ),
@@ -127,19 +99,7 @@ class _HeroHereExampleState extends State<HeroHereExample> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   IconButton(
-                    onPressed: () => paused = !paused,
-                    icon: Icon(_paused ? Icons.play_arrow : Icons.pause),
-                  ),
-                ],
-              ),
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconButton(
-                    onPressed: () {
-                      paused = true;
-                      curHeroType = HeroType.red;
-                    },
+                    onPressed: () => curHeroType = HeroType.red,
                     icon: Icon(curHeroType == HeroType.red
                         ? Icons.circle
                         : Icons.radio_button_off),
@@ -153,32 +113,12 @@ class _HeroHereExampleState extends State<HeroHereExample> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   IconButton(
-                    onPressed: () {
-                      paused = true;
-                      curHeroType = HeroType.green;
-                    },
+                    onPressed: () => curHeroType = HeroType.green,
                     icon: Icon(curHeroType == HeroType.green
                         ? Icons.circle
                         : Icons.radio_button_off),
                     color: curHeroType == HeroType.green
                         ? Colors.green
-                        : Theme.of(context).colorScheme.secondary,
-                  ),
-                ],
-              ),
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconButton(
-                    onPressed: () {
-                      paused = true;
-                      curHeroType = HeroType.blue;
-                    },
-                    icon: Icon(curHeroType == HeroType.blue
-                        ? Icons.circle
-                        : Icons.radio_button_off),
-                    color: curHeroType == HeroType.blue
-                        ? Colors.blue
                         : Theme.of(context).colorScheme.secondary,
                   ),
                 ],
@@ -204,17 +144,4 @@ class _HeroHereExampleState extends State<HeroHereExample> {
           ),
         ],
       );
-
-  void _startHeroSwitching() {
-    _timer = Timer.periodic(kAutoHeroSwitchingDuration, (_) {
-      final i = Random().nextInt(HeroType.values.length);
-      curHeroType = HeroType.values[i];
-    });
-  }
-
-  void _pauseHeroSwitching() {
-    _timer?.cancel();
-  }
 }
-
-enum HeroType { red, green, blue }

@@ -13,17 +13,15 @@
 // limitations under the License.
 
 import 'package:flutter/material.dart';
-import 'package:flutter/physics.dart';
 import 'package:hero_here/hero_here.dart';
 
 import 'config.dart';
 import 'eight_thousander_details_hero.dart';
 import 'eight_thousander_preview_hero.dart';
-import 'util.dart';
 
 void main() => runApp(
       MaterialApp(
-        title: 'HeroHere Example',
+        title: 'HeroHere Show Details Example',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(useMaterial3: true, brightness: Brightness.light),
         darkTheme: ThemeData(useMaterial3: true, brightness: Brightness.dark),
@@ -40,7 +38,7 @@ class ShowDetailsExample extends StatefulWidget {
 
 class _ShowDetailsExampleState extends State<ShowDetailsExample> {
   int? _showDetailsIndex;
-  DragEndDetails? _dragEndDetailsOnClose;
+  Velocity? _dragEndVelocityOnClose;
   Offset _gridViewOffset = Offset.zero;
   bool _isHeroSwitching = false;
 
@@ -95,12 +93,15 @@ class _ShowDetailsExampleState extends State<ShowDetailsExample> {
                           curve: HeroHere.defaultFlightAnimationCurve,
                           child: IgnorePointer(
                             ignoring: _isHeroSwitching,
-                            child: GridView.builder(
-                              clipBehavior: Clip.none,
-                              padding: const EdgeInsets.all(8),
-                              gridDelegate: kGridViewDelegate,
-                              itemCount: kEightThousanders.length,
-                              itemBuilder: _buildGridItem,
+                            child: ScrollConfiguration(
+                              behavior: kScrollBehavior,
+                              child: GridView.builder(
+                                clipBehavior: Clip.none,
+                                padding: const EdgeInsets.all(8),
+                                gridDelegate: kGridViewDelegate,
+                                itemCount: kEightThousanders.length,
+                                itemBuilder: _buildGridItem,
+                              ),
                             ),
                           ),
                         ),
@@ -122,15 +123,8 @@ class _ShowDetailsExampleState extends State<ShowDetailsExample> {
       tag: eightThousander.image,
       eightThousander: eightThousander,
       onTap: (context) => _showDetails(context, index),
-      imageHeroFlightAnimationControllerFactory: _dragEndDetailsOnClose == null
-          ? HeroHere.defaultFlightAnimationControllerFactory
-          : (tickerProvider, _) => AnimationController(
-                vsync: tickerProvider,
-                lowerBound: kOffsetAnimationControllerLowerBound,
-                upperBound: kOffsetAnimationControllerUpperBound,
-              ),
       imageHeroFlightAnimationFactory: (controller) {
-        final animation = _dragEndDetailsOnClose == null
+        final animation = _dragEndVelocityOnClose == null
             ? HeroHere.defaultFlightAnimationFactory(controller)
             : controller;
         animation.addStatusListener((status) {
@@ -142,15 +136,16 @@ class _ShowDetailsExampleState extends State<ShowDetailsExample> {
         });
         return animation;
       },
-      forwardImageHeroFlightAnimation: _dragEndDetailsOnClose == null
+      forwardImageHeroFlightAnimation: _dragEndVelocityOnClose == null
           ? HeroHere.defaultForwardFlightAnimation
           : (controller, {from}) {
               final screenSize = MediaQuery.sizeOf(context);
-              final velocity =
-                  _dragEndDetailsOnClose!.getUnitVelocity(screenSize);
-              return controller.animateWith(
-                SpringSimulation(kSpringDesription, 0, 1, velocity),
-              );
+              final pixelsPerSecond = _dragEndVelocityOnClose!.pixelsPerSecond;
+              final unitsPerSecondX = pixelsPerSecond.dx / screenSize.width;
+              final unitsPerSecondY = pixelsPerSecond.dy / screenSize.height;
+              final unitsPerSecond = Offset(unitsPerSecondX, unitsPerSecondY);
+              final unitVelocity = unitsPerSecond.distance;
+              return controller.fling(velocity: unitVelocity);
             },
     );
   }
@@ -171,13 +166,13 @@ class _ShowDetailsExampleState extends State<ShowDetailsExample> {
         final itemCenter = renderBox.size.center(itemPosition);
         _gridViewOffset = _computeGridViewSlideOffset(index, itemCenter);
         _showDetailsIndex = index;
-        _dragEndDetailsOnClose = null;
+        _dragEndVelocityOnClose = null;
         _isHeroSwitching = true;
       });
 
-  void _closeDetails([DragEndDetails? dragEndDetails]) => setState(() {
+  void _closeDetails([Velocity? dragEndVelocity]) => setState(() {
         _gridViewOffset = Offset.zero;
-        _dragEndDetailsOnClose = dragEndDetails;
+        _dragEndVelocityOnClose = dragEndVelocity;
         _showDetailsIndex = null;
         _isHeroSwitching = true;
       });
