@@ -3,9 +3,10 @@ A Flutter library that enables hero transitions on the same screen without the n
 <p>
   <img src="https://github.com/igorkurilenko/hero_here/blob/main/assets/hero_here_basic.gif?raw=true"
     alt="The hero_here basic example" width="180"/>
-  &nbsp;&nbsp;&nbsp;&nbsp;
+  &nbsp;
   <img src="https://github.com/igorkurilenko/hero_here/blob/main/assets/hero_here_chat_message.gif?raw=true"
    alt="The hero_here chat message example" width="180"/>
+  &nbsp;
   <img src="https://github.com/igorkurilenko/hero_here/blob/main/assets/hero_here_show_details.gif?raw=true"
    alt="The hero_here show details example" width="180"/>
 </p>
@@ -36,8 +37,6 @@ flutter pub get
 ```
 
 ## Usage
-
-More advanced examples can be found in the `example` folder or by following [this link](https://github.com/igorkurilenko/hero_here/tree/main/example/lib).
 
 Here’s a basic example of how to use **hero_here**:
 
@@ -176,6 +175,9 @@ class _HeroHereExampleState extends State<HeroHereExample> {
       );
 }
 ```
+
+More advanced examples can be found in the `example` folder or by following [this link](https://github.com/igorkurilenko/hero_here/tree/main/example/lib).
+
 
 ## Support and Contact
 
