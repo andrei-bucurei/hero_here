@@ -28,7 +28,7 @@ class MessageWidget extends StatelessWidget {
     TextEditingController? controller,
     this.focusNode,
     this.decoration,
-  })  : controller = controller ?? TextEditingController();
+  }) : controller = controller ?? TextEditingController();
 
   MessageWidget.readOnly({super.key, required String text, this.decoration})
       : controller = TextEditingController(text: text),
