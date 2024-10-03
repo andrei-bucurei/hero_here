@@ -519,7 +519,8 @@ class _FlightWidgetState extends State<_FlightWidget> {
 
   @override
   Widget build(BuildContext context) {
-    fromRect = fromHero?.computeGlobalRect() ?? fromHero?.placeholderRect;
+    fromRect =
+        fromRect ?? fromHero?.computeGlobalRect() ?? fromHero?.placeholderRect;
 
     return AnimatedBuilder(
       animation: flight.animation,

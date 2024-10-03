@@ -1,3 +1,9 @@
+## 1.0.1
+
+### Fixes
+
+* Preserve the begin rect in RectTween when reversing the animation.
+
 ## 1.0.0
 
 * Initial release of hero_here.
